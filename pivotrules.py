@@ -18,7 +18,7 @@ def bland(d, eps, verbose=False):
             break
     if entering is None:  # Is optimal
         return entering, leaving
-    leaving = leaving_variable(d, eps, entering)
+    leaving, ratio = leaving_variable(d, eps, entering)
     return entering, leaving
 
 
@@ -38,16 +38,16 @@ def largest_coefficient(d, eps, verbose=False):
     # pick entering variable with largest coefficient in z
     entering = leaving = None
     largest_found = 0
-    for index in range(1, d.C.shape[1]):
-        current_value = eps_correction(d.C[0, index], eps)
+    for col in range(1, d.C.shape[1]):
+        current_value = eps_correction(d.C[0, col], eps)
         if largest_found < current_value:
             largest_found = current_value
-            entering = index - 1
+            entering = col - 1
     if entering is None:  # Is optimal
         return entering, leaving
     # pick leaving variable with greatest ratio:
     # constrin_const / constrin_coefficient_of_leaving_variable
-    leaving = leaving_variable(d, eps, entering)
+    leaving, ratio = leaving_variable(d, eps, entering)
     return entering, leaving
 
 
@@ -58,48 +58,74 @@ def largest_increase(d, eps, verbose=False):
     # eps>=0 is such that numbers in the closed interval [-eps,eps]
     # are to be treated as if they were 0
     #
-    # Returns k and l such that
-    # k is None if D is Optimal
-    # Otherwise D.N[k] is entering variable
-    # l is None if D is Unbounded
-    # Otherwise D.B[l] is a leaving variable
+    # TODO Returns entering and leaving such that
+    # entering is None if D is Optimal
+    # Otherwise D.N[entering] is entering variable
+    # leaving is None if D is Unbounded
+    # Otherwise D.B[leaving] is a leaving variable
 
-    k = l = None
-    # TODO
-    return k, l
+    entering = leaving = None
+    best_until_now = 0
 
-
-def leaving_variable(d, eps, k, verbose=False):
-    # pick leaving variable with greatest ratio:
-    # constrin_const / constrin_coefficient_of_leaving_variable
-    l = None
-    for index in range(1, d.C.shape[0]):
+    for col in range(1, d.C.shape[1]):
         if verbose:
-            print(f"constraint_coefficient = {eps_correction(d.C[index, k + 1], eps)}")
-        constraint_coefficient = eps_correction(d.C[index, k + 1], eps)
-        if constraint_coefficient >= 0:
+            print(f"Looking into col looks like this: {d.C[:, col]}")
+        if eps_correction(d.C[0, col], eps) <= 0:
             continue
-        constraint_constant = eps_correction(d.C[index, 0], eps)
-        new_ratio = constraint_constant / constraint_coefficient
+        leaving_given_col, ratio = leaving_variable(d, eps, col - 1, verbose)
         if verbose:
-            print(f"constraint_constant = {eps_correction(d.C[index, 0], eps)}")
-            print(f"new_ratio = {constraint_constant / constraint_coefficient}")
-        if l == None:
-            largest_ratio = new_ratio
-            l = index - 1
+            print(f"maybe leaving = {leaving_given_col}; ratio = {ratio}") # TODO Can it happen that ratio is not assigned on first check? Chich this in the method "leaving variable"
+        if leaving_given_col is None:
+            continue
+        increase = d.C[0, col] * ratio
+        if verbose:
+            print(f"increase = {increase}")
+            print(f"best_until_now < increase     {best_until_now} < {increase}")
+        if best_until_now < increase:
+            best_until_now = increase
+            entering = col - 1
+            leaving = leaving_given_col
             if verbose:
-                print(f"new largest_ratio =  {largest_ratio}")
-                print(f"new l = {l}")
-                print()
-        if largest_ratio < new_ratio:
-            largest_ratio = new_ratio
-            l = index - 1
-            if verbose:
-                print(f"new largest_ratio =  {largest_ratio}")
-                print(f"new l = {l}")
-                print()
+                print(f"best_until_now = increase : {increase}")
+                print(f"entering = col - 1 : {col - 1}")
+                print(f"leaving = leaving_given_col : {leaving_given_col}")
+    return entering, leaving
 
-    return l
+
+def leaving_variable(d, eps, entering, verbose=False):
+    # Pick leaving variable with the smallest numerical ratio:
+    # constrin_const / constrin_coefficient_of_leaving_variable
+    leaving = None
+    smallest_ratio = 0
+    for row in range(1, d.C.shape[0]):
+        if verbose:
+            print(f"row = {row}")
+            print(f"entering + 1 = {entering + 1}")
+            print(f"coefficient = {eps_correction(d.C[row, entering + 1], eps)}")
+        coefficient = eps_correction(d.C[row, entering + 1], eps)
+        if coefficient >= 0:
+            continue
+        constant = eps_correction(d.C[row, 0], eps)
+        new_ratio = constant / -coefficient
+        if verbose:
+            print(f"constant = {eps_correction(d.C[row, 0], eps)}")
+            print(f"new_ratio = {constant / coefficient}")
+        if leaving is None:
+            smallest_ratio = new_ratio
+            leaving = row - 1
+            if verbose:
+                print(f"new smallest_ratio =  {smallest_ratio}")
+                print(f"new leaving = {leaving}")
+                print()
+        if smallest_ratio > new_ratio:
+            smallest_ratio = new_ratio
+            leaving = row - 1
+            if verbose:
+                print(f"new smallest_ratio =  {smallest_ratio}")
+                print(f"new leaving = {leaving}")
+                print()
+    print()
+    return leaving, smallest_ratio
 
 
 def eps_correction(value, eps):
