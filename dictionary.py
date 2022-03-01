@@ -208,9 +208,10 @@ class Dictionary:
         # Calculations on remaining rows
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
-                coefficient = self.C[row, entering + 1]
-                self.C[row, :] += coefficient * self.C[leaving + 1, :]
-                self.C[row, entering + 1] = coefficient * self.C[leaving + 1, entering + 1]
+                c = self.C[row, entering + 1]
+                self.C[row, :] += c * self.C[leaving + 1, :]
+                self.C[row, entering + 1] = c * self.C[leaving + 1, entering + 1]
         if verbose:
             print("Calculation on remaining rows:")
             print(self)
+

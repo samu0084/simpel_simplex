@@ -72,3 +72,4 @@ def lp_solve_one_phase(c, A, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland
 def lp_solve_two_phase(c, A, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     # TODO
     raise NotImplementedError
+
