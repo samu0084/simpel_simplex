@@ -87,6 +87,12 @@ def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland
         print(f"result auxiliary: {result_auxiliary}")
         print(f"Dictionary after phase one:")
         print(d_after_phase_one)
+    if result_auxiliary != LPResult.OPTIMAL:
+        return LPResult.INFEASIBLE, None
+    return phase_two(d_after_phase_one, c, a, b, dtype, eps, pivotrule, verbose)
+
+
+def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     # TODO: method for doing pivots on original to prepare for simplex
     # TODO: run simplex and return result
     raise NotImplementedError
