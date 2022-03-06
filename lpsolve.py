@@ -6,6 +6,7 @@ import dictionary
 from dictionary import Dictionary
 from lpresult import LPResult
 from pivotrules import bland, eps_correction
+from scipy.optimize import linprog as linprog_original
 
 
 def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
@@ -30,7 +31,7 @@ def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0)
     #
     # If LP has an optimal solution the return value is
     # LPResult.OPTIMAL,d, where d is an optimal dictionary.
-    return simple_simplex(c, a, b, eps, pivotrule, verbose)
+    return simple_simplex(c, a, b, dtype, eps, pivotrule, verbose)
 
     # lp_solve_two_phase(c, A, b, dtype, eps, pivotrule, verbose)
 
@@ -72,7 +73,6 @@ def simplex(d, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     if entering is not None and leaving is None:
         print(f"Simplex is unbounded")
         return LPResult.UNBOUNDED, None
-    print(f"Type returned from simplex: {type(d)}")
     return LPResult.OPTIMAL, d
 
 
@@ -145,3 +145,11 @@ def lowest_constraint_const(d, verbose=False):
             print(f"Constraint: {column}); Contains constant: {d.C[column, 0]}; "
                   f"Lowest constant until now: {lowest_const}; Basic variable number: {basic_variable}")
     return basic_variable
+
+
+def linprog(c, a, b):
+    res = linprog_original(-c,
+                  A_ub=a,
+                  b_ub=b,
+                  method='simplex')  # We need to explicitly say that the optimization should use the simplex method
+    return res
