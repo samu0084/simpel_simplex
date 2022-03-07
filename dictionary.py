@@ -185,7 +185,7 @@ class Dictionary:
     def float_pivot(self, entering, leaving, verbose=False):
         if verbose:
             print(f"temp = self.N[entering]            temp = {self.N[entering]}")
-            print(f"self.N[entering] = self.B[leaving] {self.N[entering]} = {self.B[leaving]}")
+            print(f"self.N[entering] = self.B[leaving] self.N[entering] = {self.B[leaving]}")
             print(f"self.B[leaving] = temp             {self.B[leaving]} = temp")
         # Shift indices
         temp = self.N[entering]

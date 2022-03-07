@@ -7,7 +7,7 @@ from dictionary import Dictionary
 from lpresult import LPResult
 from pivotrules import bland, eps_correction
 from scipy.optimize import linprog as linprog_original
-
+import scipy.optimize
 
 def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     # Simplex algorithm
@@ -40,6 +40,34 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
     d = Dictionary(c, a, b, dtype)
     return simplex(d, eps, pivotrule, verbose)
 
+
+"""
+#check if bounds are negative
+    min_b = np.argmin(b)
+    if b[min_b]<0:
+        #PHASE 1 OF auxilary method
+       prevous_z = c
+       prevous_N = D.N+1
+       most_infeasible = min_b
+       new_z = np.zeros(len(c))
+       if dtype== fraction:
+           new_c = np.insert(new_z,0,fraction(-1))
+       else:
+           new_c = np.insert(new_z, 0,-1)
+       new_A = np.insert(A,0,-1,axis=1)
+       D=Dictionary(new_c,new_A,b,dtype=dtype)
+       D.varnames = np.insert(D.varnames[:-1],1,"x0")
+       D.pivot(0,most_infeasible)
+       bs = D.C[1:0]
+       #still still ifeasible find enter and leaving varaible.
+      # and pivot.
+      #if optimal solution to the auxilary problem is not zero, the orginal problem is infeasible.
+     # phase 2
+      #remove x_0 from dictionary
+      # remove x_0 from non-bascis
+     # calculate new cost function
+     #lastly create a new dictionary without x0
+"""
 
 def simplex(d, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     degenerate_steps_before_anti_cycle = 10
@@ -83,7 +111,7 @@ def simplex(d, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     return LPResult.OPTIMAL, d
 
 
-def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
+def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: bland(d, eps), verbose=False):
     if (b >= 0).all():
         if verbose:
             print("All constants are greater then zero. We run the simple simplex")
@@ -100,9 +128,59 @@ def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland
 
 
 def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
+    print()
+    print(d_auxiliary)
+    print("---------------------changed auxiliary-------------------------")
+    d_auxiliary.C = np.delete(d_auxiliary.C, 3, 1)  # identify and delete column of auxiliary variable
+    d_auxiliary.N[2] = d_auxiliary.N[3]  # change variable names to match (push every non-basic right of x0 one left)
+    d_auxiliary.C[0, :] = c[0] * d_auxiliary.C[2, :] + c[1] * d_auxiliary.C[3, :] + c[2] * d_auxiliary.C[1, :]  # multiply each variable with the basic expression for that variable, and sum to OF
+    print(d_auxiliary)
+    print("---------------------initial new dictionary-------------------------")
+    d = dictionary.Dictionary(c, a, b, dtype)
+    print(d)
+    print("---------------------new corrected dictionary-------------------------")
+    rows, cols = a.shape
+    # leaving is the index in B corresponding to the current row
+    # entering is the subscript of the variable in the current row
+    # in the new dictionary we want to pivot every variable which is basic in the auxiliary dictionary
+    # (we pivot it to the position it holds in the auxiliary dictionary)
+    # if the subscipt is leq to the max supcript initially not in the basis, then we pivot
+    for leaving, entering in enumerate(d_auxiliary.B):
+        print(f"entering: {entering}")
+        if entering > cols:
+            continue
+        d.pivot(entering - 1, leaving)  # we subtract to get to the corresponding position in the initial N
+    print(d)
+    # repeat until no more basic or non-basic
+    # next basic, which should be non-basic
+    # next non-basic which should be basic
+    # pivot
+
+
     # TODO: method for doing pivots on original to prepare for simplex
-    # TODO: run simplex and return result
-    raise NotImplementedError
+    # d.pivot(2, 0)
+    # d.pivot(0, 1)
+    # d.pivot(1, 2)
+    # d_auxiliary.C[0, :] += d_auxiliary.C[0, 1] * d_auxiliary.C[2, :]
+    # d_auxiliary.C[0, :] += d_auxiliary.C[0, 2] * d_auxiliary.C[3, :]
+    # d_auxiliary.C[0, :] += d_auxiliary.C[0, 3] * d_auxiliary.C[1, :]
+    # print(d)
+    print("---------------------Stuff which doesn't matter-------------------------")
+    d = dictionary.Dictionary(c, a, b, dtype)
+    d.pivot(0, 0)
+    d.pivot(1, 1)
+    d.pivot(2, 2)
+    print(d)
+    print(d.value())
+    print(d.basic_solution())
+
+    print()
+
+    return simplex(d, eps=eps, pivotrule=pivotrule, verbose=verbose)
+
+
+
+
 
 
 def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
@@ -120,22 +198,18 @@ def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbos
     if verbose:
         print(f"Auxiliary dictionary after pivot with entering = {entering} and leaving = {leaving}")
         print(d)
-    result, b = simplex(d, eps, pivotrule, verbose)
-    # if verbose:
-    #     print(f"The value of the optimal solution for the auxiliary problem: {d.value()}")
-    # if d.value() < 0:
-    #     return LPResult.INFEASIBLE, d
-    leaving = position_of_auxiliary_variable_in_basis(b, verbose)
-    if entering is not None:
-        b.pivot(0, leaving)
-    return LPResult.OPTIMAL, b
+    result, d = simplex(d, eps, pivotrule, verbose)
+    is_auxiliary_variable_in_basis, leaving = position_of_auxiliary_variable_in_basis(d, verbose)
+    if is_auxiliary_variable_in_basis:
+        d.pivot(0, leaving, verbose)
+    return LPResult.OPTIMAL, d
 
 
 def position_of_auxiliary_variable_in_basis(d: dictionary.Dictionary, verbose):
-    # TODO
+    # TODO: IMPLEMENT THIS STUFF!!!
     # print(f"varnames: {d.varnames[0]}")
     #    print(f"position_of_auxiliary_variable_in_basis: {}")
-    return None
+    return False, None
 
 
 def lowest_constraint_const(d, verbose=False):
