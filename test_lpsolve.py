@@ -176,21 +176,28 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
         self.assertEqual(expected_d, d.__str__())
 
     def test_two_phase_float_1(self):
-        # TODO: From the top
         verbose = True
         c = np.array([1, -1, 1])
         a = np.array([[2, -3, 1], [2, -1, 2], [-1, 1, -2]])
         b = np.array([-5, 4, -1])
-        res_linprog = lpsolve.linprog(c, a, b)
         if verbose:
             initial_d = Dictionary(c, a, b)
             print("Initial dictionary:")
             print(initial_d)
         expected_res = LPResult.OPTIMAL
-        expected_d = """"""
+        expected_d = """ z =  3/5 -  2/5*x5 -  1/5*x1 -  1/5*x4
+x3 = 17/5 -  3/5*x5 -  4/5*x1 +  1/5*x4
+x6 =    3 -    1*x5 -    1*x1 -    0*x4
+x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
         res, d = lp_solve_two_phase(c, a, b, verbose=verbose)
         self.assertEqual(expected_res, res)
         self.assertEqual(expected_d, d.__str__())
+        print(f"d.value(): {d.value()}")
+        print(f"d.basic_solution: {d.basic_solution()}")
+        print("Expected results")
+        res_linprog = lpsolve.linprog(c, a, b)
+        print(res_linprog)
+
 
     def test_try_linprog(self):
         # Works directly on auxiliary
