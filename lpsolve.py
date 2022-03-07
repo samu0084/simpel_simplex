@@ -10,7 +10,7 @@ from scipy.optimize import linprog as linprog_original
 import scipy.optimize
 
 
-def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
+def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
     # Simplex algorithm
     #
     # Input is LP in standard form given by vectors and matrices
@@ -32,7 +32,7 @@ def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0)
     #
     # If LP has an optimal solution the return value is
     # LPResult.OPTIMAL,d, where d is an optimal dictionary.
-    return simple_simplex(c, a, b, dtype, eps, pivotrule, verbose)
+    return lp_solve_two_phase(c, a, b, dtype, eps, pivotrule, verbose)
 
     # lp_solve_two_phase(c, A, b, dtype, eps, pivotrule, verbose)
 
@@ -71,16 +71,11 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
 """
 
 
-def simplex(d, eps=0, pivotrule=lambda d: bland(d, eps=0), verbose=False):
+def simplex(d, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
     degenerate_steps_before_anti_cycle = 10
     if (d.C[1:, 0] < 0).any():  # infeasible (Without auxiliary)
         if verbose:
             print("Simplex is infeasible")
-        # TODO: Remove the prints below, once you have figured our the auxiliary infeasibility check problemo
-        print("Simplex is infeasible")
-        res_linprog = linprog(*dictionary_to_input_arrays(d))
-        print("linprog (With value shown with opposite sign)")
-        print(res_linprog)
         return LPResult.INFEASIBLE, None
 
     degenerate_counter = 0
@@ -130,7 +125,7 @@ def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: 
     return phase_two(d_after_phase_one, c, a, b, dtype, eps, pivotrule, verbose)
 
 
-def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
+def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
     d = Dictionary(None, a, b, dtype)
     if verbose:
         print(f"Auxiliary initial dictionary:")
@@ -146,10 +141,11 @@ def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbos
         print(f"Auxiliary dictionary after pivot with entering = {entering} and leaving = {leaving}")
         print(d)
     result, d = simplex(d, eps, pivotrule, verbose)
-    is_auxiliary_variable_in_basis, position_in_basis = position_of_auxiliary_variable_in_basis(d, verbose)
-    if is_auxiliary_variable_in_basis:
-        d.pivot(0, position_in_basis, verbose)
-    return LPResult.OPTIMAL, d
+    if result == LPResult.OPTIMAL:
+        is_auxiliary_variable_in_basis, position_in_basis = position_of_auxiliary_variable_in_basis(d, verbose)
+        if is_auxiliary_variable_in_basis:
+            d.pivot(0, position_in_basis, verbose)
+    return result, d
 
 
 def position_of_auxiliary_variable_in_basis(d: dictionary.Dictionary, verbose):
@@ -181,7 +177,6 @@ def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, e
     # (we pivot it to the position it holds in the auxiliary dictionary)
     # if the subscript is leq to the max subscript initially not in the basis, then we pivot
     for leaving, entering in enumerate(d_auxiliary.B):
-        print(f"entering: {entering}")
         if entering > cols:
             continue
         d.pivot(entering - 1, leaving)  # we subtract to get to the corresponding position in the initial N

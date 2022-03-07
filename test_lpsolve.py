@@ -9,7 +9,7 @@ import numpy as np
 import dictionary
 import lpsolve
 from dictionary import Dictionary
-from experiments import run_test_dict, random_lp, random_lp_with_negative_b_values
+from experiments import compare_to_linprog, random_lp_only_none_negative_b_values, random_lp_including_negative_b_values
 from lpresult import LPResult
 from lpsolve import lp_solve, lp_solve_two_phase
 from scipy.optimize import linprog as linprog_original, linprog
@@ -189,7 +189,7 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
 x3 = 17/5 -  3/5*x5 -  4/5*x1 +  1/5*x4
 x6 =    3 -    1*x5 -    1*x1 -    0*x4
 x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
-        res, d = lp_solve_two_phase(c, a, b, verbose=verbose)
+        res, d = lp_solve(c, a, b, verbose=verbose)
         self.assertEqual(expected_res, res)
         self.assertEqual(expected_d, d.__str__())
         print(f"d.value(): {d.value()}")
@@ -223,7 +223,7 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
         for i in range(50):
             n = random.randint(1, 50)
             m = random.randint(1, 50)
-            c, a, b = random_lp(n, m)
+            c, a, b = random_lp_only_none_negative_b_values(n, m)
             res_linprog = linprog(-c, a, b, method="simplex")
             res, d = lpsolve.simple_simplex(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
             if (res == LPResult.UNBOUNDED) != (res_linprog.message == "Optimization failed. The problem appears to be unbounded."):
@@ -236,7 +236,7 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
         for i in range(50):
             n = random.randint(1, 50)
             m = random.randint(1, 50)
-            c, a, b = random_lp_with_negative_b_values(n, m)
+            c, a, b = random_lp_including_negative_b_values(n, m)
             res_linprog = linprog(-c, a, b, method="simplex")
             res, d = lpsolve.lp_solve(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
             if (res == LPResult.INFEASIBLE) != (res_linprog.message == "Optimization failed. The problem appears to be infeasible."):

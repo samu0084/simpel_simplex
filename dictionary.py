@@ -183,6 +183,7 @@ class Dictionary:
             print(f"self.lastpivot: {self.lastpivot}")
 
     def float_pivot(self, entering, leaving, verbose=False):
+        d_before_pivot = self.__str__()
         if verbose:
             print(f"temp = self.N[entering]            temp = {self.N[entering]}")
             print(f"self.N[entering] = self.B[leaving] self.N[entering] = {self.B[leaving]}")
@@ -200,8 +201,13 @@ class Dictionary:
             print("Save pivot coefficient:")
             print(f"{a} = self.C[l + 1, k + 1]")
         # Calculations on pivot row
-        self.C[leaving + 1, :] /= -a
-        self.C[leaving + 1, entering + 1] = 1 / a
+        # TODO make sure a cannot be zero (why might we ever pivot with something that is zero? Auxiliary?) The try is for debugging
+        try:
+            self.C[leaving + 1, :] /= -a
+            self.C[leaving + 1, entering + 1] = 1 / a
+        except:
+            print(f"An attempt was just made to pivot(entering, leaving): entering = {entering}; leaving = {leaving}")
+            print(d_before_pivot)
         if verbose:
             print("Calculation on pivot row:")
             print(self)
@@ -214,4 +220,3 @@ class Dictionary:
         if verbose:
             print("Calculation on remaining rows:")
             print(self)
-
