@@ -130,23 +130,6 @@ def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: 
     return phase_two(d_after_phase_one, c, a, b, dtype, eps, pivotrule, verbose)
 
 
-def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
-    d = dictionary.Dictionary(c, a, b, dtype)
-    rows, cols = a.shape
-    # leaving is the index in B corresponding to the current row
-    # entering is the subscript of the variable in the current row
-    # in the new dictionary we want to pivot every variable which is basic in the auxiliary dictionary
-    # (we pivot it to the position it holds in the auxiliary dictionary)
-    # if the subscript is leq to the max subscript initially not in the basis, then we pivot
-    for leaving, entering in enumerate(d_auxiliary.B):
-        print(f"entering: {entering}")
-        if entering > cols:
-            continue
-        d.pivot(entering - 1, leaving)  # we subtract to get to the corresponding position in the initial N
-    print(d)
-    return simplex(d, eps=eps, pivotrule=pivotrule, verbose=verbose)
-
-
 def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     d = Dictionary(None, a, b, dtype)
     if verbose:
@@ -163,17 +146,46 @@ def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbos
         print(f"Auxiliary dictionary after pivot with entering = {entering} and leaving = {leaving}")
         print(d)
     result, d = simplex(d, eps, pivotrule, verbose)
-    is_auxiliary_variable_in_basis, leaving = position_of_auxiliary_variable_in_basis(d, verbose)
+    is_auxiliary_variable_in_basis, position_in_basis = position_of_auxiliary_variable_in_basis(d, verbose)
     if is_auxiliary_variable_in_basis:
-        d.pivot(0, leaving, verbose)
+        d.pivot(0, position_in_basis, verbose)
     return LPResult.OPTIMAL, d
 
 
 def position_of_auxiliary_variable_in_basis(d: dictionary.Dictionary, verbose):
-    # TODO: IMPLEMENT THIS STUFF!!!
-    # print(f"varnames: {d.varnames[0]}")
-    #    print(f"position_of_auxiliary_variable_in_basis: {}")
+    # The auxiliary variable-name is at varname[n+1] (n+1 = cols-1 in C). Thus we look for this entry in the basis.
+    rows, cols = d.C.shape
+    if verbose:
+        print(f"rows, cols = d.C.shape: rows = {rows}, cols = {cols}")
+        print(f"for leaving, entry in enumerate(d.B):")
+    for leaving, entry in enumerate(d.B):
+        if verbose:
+            print(f"leaving = {leaving}")
+            print(f"entry = {entry}")
+            print(f"if entry == cols + 1: {entry == cols-1}")
+        if entry == cols-1:
+            if verbose:
+                print(f"return True, {leaving}")
+            return True, leaving
+    if verbose:
+        print("return False, None")
     return False, None
+
+
+def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
+    d = dictionary.Dictionary(c, a, b, dtype)
+    rows, cols = a.shape
+    # leaving is the index in B corresponding to the current row
+    # entering is the subscript of the variable in the current row
+    # in the new dictionary we want to pivot every variable which is basic in the auxiliary dictionary
+    # (we pivot it to the position it holds in the auxiliary dictionary)
+    # if the subscript is leq to the max subscript initially not in the basis, then we pivot
+    for leaving, entering in enumerate(d_auxiliary.B):
+        print(f"entering: {entering}")
+        if entering > cols:
+            continue
+        d.pivot(entering - 1, leaving)  # we subtract to get to the corresponding position in the initial N
+    return simplex(d, eps=eps, pivotrule=pivotrule, verbose=verbose)
 
 
 def lowest_constraint_const(d, verbose=False):
