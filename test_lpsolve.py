@@ -1,13 +1,20 @@
+from datetime import time
 from fractions import Fraction
+from math import copysign
+import random
 from unittest import TestCase
 
 import numpy as np
 
 import dictionary
+import lpsolve
 from dictionary import Dictionary
+from experiments import run_test_dict, random_lp, random_lp_with_negative_b_values
 from lpresult import LPResult
 from lpsolve import lp_solve, lp_solve_two_phase
-from scipy.optimize import linprog as linprog_original
+from scipy.optimize import linprog as linprog_original, linprog
+
+from pivotrules import bland
 
 
 def example1():
@@ -32,14 +39,6 @@ def exercise2_6():
 
 def exercise2_7():
     return np.array([1, 3]), np.array([[-1, -1], [-1, 1], [-1, 2]]), np.array([-3, -1, 2])
-
-
-def linprog(c, a, b):
-    res = linprog_original(-c,
-                  A_ub=a,
-                  b_ub=b,
-                  method='simplex')  # We need to explicitly say that the optimization should use the simplex method
-    return res
 
 
 class Test(TestCase):
@@ -177,54 +176,74 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
         self.assertEqual(expected_d, d.__str__())
 
     def test_two_phase_float_1(self):
+        # TODO: From the top
         verbose = True
         c = np.array([1, -1, 1])
         a = np.array([[2, -3, 1], [2, -1, 2], [-1, 1, -2]])
         b = np.array([-5, 4, -1])
-        res_linprog = linprog(c, a, b)
-        print("linprog:")
-        print(f"Value: {-res_linprog.fun}")
+        res_linprog = lpsolve.linprog(c, a, b)
         if verbose:
             initial_d = Dictionary(c, a, b)
             print("Initial dictionary:")
             print(initial_d)
-            print("------------------------")
         expected_res = LPResult.OPTIMAL
         expected_d = """"""
         res, d = lp_solve_two_phase(c, a, b, verbose=verbose)
         self.assertEqual(expected_res, res)
         self.assertEqual(expected_d, d.__str__())
 
-    def test_dictionary_to_input_arrays(self, d, verbose):
-        c, a_ub, b_ub = np.array([5, 4, 3]), np.array([[2, 3, 1], [4, 1, 2], [3, 4, 2]]), np.array([5, 11, 8])
-        d = dictionary.Dictionary(c, a_ub, b_ub)
-        print(d)
-        c = d.C[0, 1:]
-        a_ub = -d.C[1:, 1:]
-        b_ub = d.C[1:, 0]
-        objective_function_constant = d.C[0, 0]
-        if objective_function_constant == 0:
-            if verbose:
-                print("Dictionary as arrays")
-                print(f"c: {c}")
-                print(f"a_ub: {a_ub}")
-                print(f"b_ub: {b_ub}")
-            return c, a_ub, b_ub
-        else:
-            c_plus = np.hstack([c, [Fraction(1, 1)]])
-            a_row, a_col = a_ub.shape
-            a_ub_plus = np.hstack([a_ub, np.full((a_row, 1), Fraction(0, 1))])
-            a_eq = np.full((a_col + 1), Fraction(0, 1))
-            a_eq[a_col] = Fraction(1, 1)
-            b_eq = np.array([objective_function_constant])
-            if verbose:
-                print("Dictionary as arrays")
-                print(f"c: {c_plus}")
-                print(f"a_ub: {a_ub_plus}")
-                print(f"b_ub: {b_ub}")
-                print(f"a_eq: {a_eq}")
-                print(f"b_eq: {b_eq}")
-            return c_plus, a_row, a_ub_plus, a_eq, b_eq
+    def test_try_linprog(self):
+        # Works directly on auxiliary
+        c = np.array([0, 0, 0, -1])
+        a = np.array([[2, -3, 1, -1], [2, -1, 2, -1], [-1, 1, -2, -1]])
+        b = np.array([-5, 4, -1])
+        a_eq = None
+        b_eq = None
+        res_linprog = lpsolve.linprog(c, a, b, a_eq, b_eq)
+        print(res_linprog)
+        print()
+        # On modified auxiliary
+        c = np.array([-2, 3, -1, -1, -1])
+        a = np.array([[-2, 3, -1, -1, 0], [0, 2, 1, -1, 0], [-3, 4, -3, -1, 0]])
+        b = np.array([5, 9, 4])
+        a_eq = np.array([[0, 0, 0, 0, 1]])
+        b_eq = np.array([5])
+        res_linprog = lpsolve.linprog(c, a, b, a_eq, b_eq)
+        print(res_linprog)
+
+    def test_linprog_vs_ours_on_unbounded(self):
+        random.seed()
+        for i in range(50):
+            n = random.randint(1, 50)
+            m = random.randint(1, 50)
+            c, a, b = random_lp(n, m)
+            res_linprog = linprog(-c, a, b, method="simplex")
+            res, d = lpsolve.simple_simplex(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
+            if (res == LPResult.UNBOUNDED) != (res_linprog.message == "Optimization failed. The problem appears to be unbounded."):
+                print(d)
+                self.assertEqual(res == LPResult.UNBOUNDED, res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
+
+    def test_linprog_vs_ours_on_infeasible(self):
+        # TODO: Only works after we implemented the two-phase simplex method
+        random.seed()
+        for i in range(50):
+            n = random.randint(1, 50)
+            m = random.randint(1, 50)
+            c, a, b = random_lp_with_negative_b_values(n, m)
+            res_linprog = linprog(-c, a, b, method="simplex")
+            res, d = lpsolve.lp_solve(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
+            if (res == LPResult.INFEASIBLE) != (res_linprog.message == "Optimization failed. The problem appears to be infeasible."):
+                print(d)
+                self.assertEqual(res == LPResult.UNBOUNDED, res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
+
+    def test_infeasibility(self):
+        c = np.array([1, -1, 1])
+        a = np.array([[2, -3, 1], [2, -1, 2], [-1, 1, -2]])
+        b = np.array([-5, 4, -1])
+        d = dictionary.Dictionary(c, a, b)
+        b_retrieved = d.C[1:, 0]
+        print(b_retrieved)
+
 
 """
 res: OptimizeResult

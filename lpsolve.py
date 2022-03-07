@@ -43,12 +43,18 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
 
 def simplex(d, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     degenerate_steps_before_anti_cycle = 10
-    if not (d.basic_solution() == np.zeros(d.N.shape[0])).all():  # infeasible (Without auxiliary)
+    if (d.C[1:, 0] < 0).any():  # infeasible (Without auxiliary)
+        if verbose:
+            print("Simplex is infeasible")
+        # TODO: Remove the prints below, once you have figured our the auxiliary infeasibility check problemo
         print("Simplex is infeasible")
+        res_linprog = linprog(*dictionary_to_input_arrays(d))
+        print("linprog (With value shown with opposite sign)")
+        print(res_linprog)
         return LPResult.INFEASIBLE, None
 
     degenerate_counter = 0
-    entering, leaving = pivotrule(d)
+    entering, leaving = pivotrule(d, eps)
     while entering is not None and leaving is not None:
         if verbose:
             print(f"entering: {d.varnames[d.N[entering]]}; leaving: {d.varnames[d.B[leaving]]}")
@@ -64,14 +70,15 @@ def simplex(d, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
                 degenerate_counter += 1
                 #
                 if degenerate_counter > degenerate_steps_before_anti_cycle:
-                    pivotrule = bland
+                    pivotrule = lambda d, eps: bland(d, eps)
                 break
         else:
             degenerate_counter = 0
-        entering, leaving = pivotrule(d)
+        entering, leaving = pivotrule(d, eps)
 
     if entering is not None and leaving is None:
-        print(f"Simplex is unbounded")
+        if verbose:
+            print(f"Simplex is unbounded")
         return LPResult.UNBOUNDED, None
     return LPResult.OPTIMAL, d
 
@@ -100,7 +107,6 @@ def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, e
 
 def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     d = Dictionary(None, a, b, dtype)
-    print(f"Type initial: {type(d)}")
     if verbose:
         print(f"Auxiliary initial dictionary:")
         print(d)
@@ -115,7 +121,6 @@ def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbos
         print(f"Auxiliary dictionary after pivot with entering = {entering} and leaving = {leaving}")
         print(d)
     result, b = simplex(d, eps, pivotrule, verbose)
-    print(f"Type after simplex: {type(b)}")
     # if verbose:
     #     print(f"The value of the optimal solution for the auxiliary problem: {d.value()}")
     # if d.value() < 0:
@@ -127,7 +132,7 @@ def phase_one(c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbos
 
 
 def position_of_auxiliary_variable_in_basis(d: dictionary.Dictionary, verbose):
-    print(f"Type in method: {type(d)}")
+    # TODO
     # print(f"varnames: {d.varnames[0]}")
     #    print(f"position_of_auxiliary_variable_in_basis: {}")
     return None
@@ -147,9 +152,52 @@ def lowest_constraint_const(d, verbose=False):
     return basic_variable
 
 
-def linprog(c, a, b):
+def linprog(c, a_ub=None, b_ub=None, a_eq=None, b_eq=None):
     res = linprog_original(-c,
-                  A_ub=a,
-                  b_ub=b,
-                  method='simplex')  # We need to explicitly say that the optimization should use the simplex method
+                           A_ub=a_ub,
+                           b_ub=b_ub,
+                           A_eq=a_eq,
+                           b_eq=b_eq,
+                           method='simplex')  # We need to say that the optimization should use the simplex method
     return res
+
+
+def dictionary_to_input_arrays(d, verbose=False):
+    # c, a_ub, b_ub = np.array([5, 4, 3]), np.array([[2, 3, 1], [4, 1, 2], [3, 4, 2]]), np.array([5, 11, 8])
+    # d = dictionary.Dictionary(c, a_ub, b_ub)
+    # print(d)
+    c = d.C[0, 1:]
+    a_ub = -d.C[1:, 1:]
+    b_ub = d.C[1:, 0]
+    objective_function_constant = d.C[0, 0]
+    if objective_function_constant == 0:
+        if verbose:
+            print("Dictionary as arrays")
+            print(f"c: {c}")
+            print(f"a_ub: {a_ub}")
+            print(f"b_ub: {b_ub}")
+        return c, a_ub, b_ub, None, None
+    else:
+        a_row, a_col = a_ub.shape
+        if isinstance(objective_function_constant, Fraction):
+            sign = np.sign(objective_function_constant.numerator)
+            c_plus = np.hstack([c, [Fraction(sign, 1)]])
+            a_ub_plus = np.hstack([a_ub, np.full((a_row, 1), Fraction(0, 1))])
+            a_eq = np.full((1, a_col + 1), Fraction(0, 1))
+            a_eq[0, a_col] = Fraction(1, 1)
+        else:
+            sign = np.sign(objective_function_constant)
+            c_plus = np.hstack([c, sign])
+            a_ub_plus = np.hstack([a_ub, np.full((a_row, 1), 0)])
+            a_eq = np.full((1, a_col + 1), 0)
+            a_eq[0, a_col] = 1
+        b_eq = np.array([sign * objective_function_constant])
+        if verbose:
+            print("Dictionary as arrays")
+            print(f"c: {c_plus}")
+            print(f"a_ub: {a_ub_plus}")
+            print(f"b_ub: {b_ub}")
+            print(f"a_eq: {a_eq}")
+            print(f"b_eq: {b_eq}")
+        return c_plus, a_ub_plus, b_ub, a_eq, b_eq
+

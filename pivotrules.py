@@ -124,7 +124,6 @@ def leaving_variable(d, eps, entering, verbose=False):
                 print(f"new smallest_ratio =  {smallest_ratio}")
                 print(f"new leaving = {leaving}")
                 print()
-    print()
     return leaving, smallest_ratio
 
 
