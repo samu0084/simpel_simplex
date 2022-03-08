@@ -176,10 +176,17 @@ def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, e
     # in the new dictionary we want to pivot every variable which is basic in the auxiliary dictionary
     # (we pivot it to the position it holds in the auxiliary dictionary)
     # if the subscript is leq to the max subscript initially not in the basis, then we pivot
+    pivot_list = list()
     for leaving, entering in enumerate(d_auxiliary.B):
         if entering > cols:
             continue
-        d.pivot(entering - 1, leaving)  # we subtract to get to the corresponding position in the initial N
+        pivot_list.append((entering - 1, leaving))  # we subtract to get to the corresponding position in the initial N
+    while pivot_list.__len__() > 0:
+        for i in range(len(pivot_list)-1, -1, -1):
+            entering, leaving = pivot_list[i]
+            if d.C[leaving + 1, entering + 1] != 0:
+                d.pivot(entering, leaving)
+                del pivot_list[i]
     return simplex(d, eps=eps, pivotrule=pivotrule, verbose=verbose)
 
 
