@@ -158,8 +158,8 @@ def position_of_auxiliary_variable_in_basis(d: dictionary.Dictionary, verbose):
         if verbose:
             print(f"leaving = {leaving}")
             print(f"entry = {entry}")
-            print(f"if entry == cols + 1: {entry == cols-1}")
-        if entry == cols-1:
+            print(f"if entry == cols + 1: {entry == cols - 1}")
+        if entry == cols - 1:
             if verbose:
                 print(f"return True, {leaving}")
             return True, leaving
@@ -168,26 +168,59 @@ def position_of_auxiliary_variable_in_basis(d: dictionary.Dictionary, verbose):
     return False, None
 
 
+def basis_index_auxiliary_variable(d: dictionary.Dictionary, verbose):
+    # The auxiliary variable-name is at varname[n+1] (n+1 = cols-1 in C). Thus we look for this entry in the basis.
+    rows, cols = d.C.shape
+    if verbose:
+        print(f"rows, cols = d.C.shape: rows = {rows}, cols = {cols}")
+    for index, entry in enumerate(d.N):
+        if verbose:
+            print(f"basis index = {index}")
+            print(f"entry = {entry}")
+            print(f"if entry == cols + 1: {entry == cols - 1}")
+        if entry == cols - 1:
+            if verbose:
+                print(f"return {index}")
+            return index
+    if verbose:
+        print("return None")
+    return None
+
+
+def push_elements_left(array, from_index):
+    for i in range(from_index, 0):
+        1
+
+
 def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
-    d = dictionary.Dictionary(c, a, b, dtype)
-    rows, cols = a.shape
-    # leaving is the index in B corresponding to the current row
-    # entering is the subscript of the variable in the current row
-    # in the new dictionary we want to pivot every variable which is basic in the auxiliary dictionary
-    # (we pivot it to the position it holds in the auxiliary dictionary)
-    # if the subscript is leq to the max subscript initially not in the basis, then we pivot
-    pivot_list = list()
-    for leaving, entering in enumerate(d_auxiliary.B):
-        if entering > cols:
-            continue
-        pivot_list.append((entering - 1, leaving))  # we subtract to get to the corresponding position in the initial N
-    while pivot_list.__len__() > 0:
-        for i in range(len(pivot_list)-1, -1, -1):
-            entering, leaving = pivot_list[i]
-            if d.C[leaving + 1, entering + 1] != 0:
-                d.pivot(entering, leaving)
-                del pivot_list[i]
-    return simplex(d, eps=eps, pivotrule=pivotrule, verbose=verbose)
+    print("---------------------Auxiliary BEFORE change-------------------------")
+    print(d_auxiliary)
+    print("---------------------------------------------------------------")
+    # identify and delete column of auxiliary variable
+    basis_index_of_auxiliary_variable = basis_index_auxiliary_variable(d_auxiliary, verbose)
+    d_auxiliary.N = np.delete(d_auxiliary.N, basis_index_of_auxiliary_variable, 0)
+    d_auxiliary.C = np.delete(d_auxiliary.C, basis_index_of_auxiliary_variable + 1, 1)
+    print(f"c: {c}")
+    aggregate = np.full((len(c)+1), 0, dtype)
+    print(f"aggregate: {aggregate}")
+    for index, b in enumerate(d_auxiliary.B):
+        print(f"index: {index}")
+        print(f"b: {b}")
+        print(f"if b <= len(c): {b <= len(c)}")
+        if b <= len(c):
+            aggregate += d_auxiliary.C[index + 1, :] * c[b-1]
+            print(f"aggregate: {aggregate}")
+            print(f"c[b-1]: {c[b-1]}")
+            d_auxiliary.C[0, b] = 0
+            print(f"d_auxiliary.C[0, {b+1}] = 0")
+    d_auxiliary.C[0, :] += aggregate
+    if verbose:
+        print(f"Basis index of auxiliary variable: {basis_index_of_auxiliary_variable}")
+        print(f"Column of auxiliary variable: {basis_index_of_auxiliary_variable + 1}")
+        print("Auxiliary dictionary after removal of auxiliary variable")
+        print("---------------------changed auxiliary-------------------------")
+        print(d_auxiliary)
+    return simplex(d_auxiliary, eps=eps, pivotrule=pivotrule, verbose=verbose)
 
 
 def lowest_constraint_const(d, verbose=False):

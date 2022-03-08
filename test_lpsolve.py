@@ -176,7 +176,7 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
         self.assertEqual(expected_d, d.__str__())
 
     def test_two_phase_float_1(self):
-        verbose = True
+        verbose = False
         c = np.array([1, -1, 1])
         a = np.array([[2, -3, 1], [2, -1, 2], [-1, 1, -2]])
         b = np.array([-5, 4, -1])
@@ -197,7 +197,6 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
         print("Expected results")
         res_linprog = lpsolve.linprog(c, a, b)
         print(res_linprog)
-
 
     def test_try_linprog(self):
         # Works directly on auxiliary
@@ -226,9 +225,11 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
             c, a, b = random_lp_only_none_negative_b_values(n, m)
             res_linprog = linprog(-c, a, b, method="simplex")
             res, d = lpsolve.simple_simplex(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
-            if (res == LPResult.UNBOUNDED) != (res_linprog.message == "Optimization failed. The problem appears to be unbounded."):
+            if (res == LPResult.UNBOUNDED) != (
+                    res_linprog.message == "Optimization failed. The problem appears to be unbounded."):
                 print(d)
-                self.assertEqual(res == LPResult.UNBOUNDED, res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
+                self.assertEqual(res == LPResult.UNBOUNDED,
+                                 res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
 
     def test_linprog_vs_ours_on_infeasible(self):
         # TODO: Only works after we implemented the two-phase simplex method
@@ -239,9 +240,11 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
             c, a, b = random_lp_including_negative_b_values(n, m)
             res_linprog = linprog(-c, a, b, method="simplex")
             res, d = lpsolve.lp_solve(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
-            if (res == LPResult.INFEASIBLE) != (res_linprog.message == "Optimization failed. The problem appears to be infeasible."):
+            if (res == LPResult.INFEASIBLE) != (
+                    res_linprog.message == "Optimization failed. The problem appears to be infeasible."):
                 print(d)
-                self.assertEqual(res == LPResult.UNBOUNDED, res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
+                self.assertEqual(res == LPResult.UNBOUNDED,
+                                 res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
 
     def test_infeasibility(self):
         c = np.array([1, -1, 1])
