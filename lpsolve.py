@@ -193,31 +193,19 @@ def push_elements_left(array, from_index):
 
 
 def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
-    print("---------------------Auxiliary BEFORE change-------------------------")
-    print(d_auxiliary)
-    print("---------------------------------------------------------------")
     # identify and delete column of auxiliary variable
     basis_index_of_auxiliary_variable = basis_index_auxiliary_variable(d_auxiliary, verbose)
     d_auxiliary.N = np.delete(d_auxiliary.N, basis_index_of_auxiliary_variable, 0)
     d_auxiliary.C = np.delete(d_auxiliary.C, basis_index_of_auxiliary_variable + 1, 1)
-    print(f"c: {c}")
+    # correct OF
+    d_auxiliary.C[0, 1:] = c
     aggregate = np.full((len(c)+1), 0, dtype)
-    print(f"aggregate: {aggregate}")
     for index, b in enumerate(d_auxiliary.B):
-        print(f"index: {index}")
-        print(f"b: {b}")
-        print(f"if b <= len(c): {b <= len(c)}")
         if b <= len(c):
             aggregate += d_auxiliary.C[index + 1, :] * c[b-1]
-            print(f"aggregate: {aggregate}")
-            print(f"c[b-1]: {c[b-1]}")
             d_auxiliary.C[0, b] = 0
-            print(f"d_auxiliary.C[0, {b+1}] = 0")
     d_auxiliary.C[0, :] += aggregate
     if verbose:
-        print(f"Basis index of auxiliary variable: {basis_index_of_auxiliary_variable}")
-        print(f"Column of auxiliary variable: {basis_index_of_auxiliary_variable + 1}")
-        print("Auxiliary dictionary after removal of auxiliary variable")
         print("---------------------changed auxiliary-------------------------")
         print(d_auxiliary)
     return simplex(d_auxiliary, eps=eps, pivotrule=pivotrule, verbose=verbose)
