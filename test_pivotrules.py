@@ -1,3 +1,4 @@
+import math
 from fractions import Fraction
 from unittest import TestCase
 
@@ -31,22 +32,15 @@ class Test(TestCase):
         # Test leaving_variable for entering 0
         entering = 0
         expected = 2
-        leaving, ratio = leaving_variable(d, 0, entering, np.float64, verbose)
-        self.assertEqual(expected, leaving)
-        leaving, ratio = leaving_variable(d, 0, entering, Fraction, verbose)
-        self.assertEqual(expected, leaving)
-        leaving, ratio = leaving_variable(d, 0, entering, int, verbose)
+        leaving, ratio = leaving_variable(d, 0, entering, verbose)
         self.assertEqual(expected, leaving)
         # Test leaving_variable for entering 1
         entering = 1
         expected = 1
         print(d)
-        leaving, ratio = leaving_variable(d, 0, entering, np.float64, verbose)
+        leaving, ratio = leaving_variable(d, 0, entering, verbose)
         self.assertEqual(expected, leaving)
-        leaving, ratio = leaving_variable(d, 0, entering, Fraction, verbose)
-        self.assertEqual(expected, leaving)
-        leaving, ratio = leaving_variable(d, 0, entering, int, verbose)
-        self.assertEqual(expected, leaving)
+
 
     def test_leaving_variable1(self):
         verbose = False
@@ -63,17 +57,17 @@ class Test(TestCase):
         # Test leaving_variable for entering 0
         entering = 0
         expected = 0
-        leaving, ratio = leaving_variable(d, 0, entering, np.float64, verbose)
+        leaving, ratio = leaving_variable(d, 0, entering, verbose)
         self.assertEqual(expected, leaving)
         # Test leaving_variable for entering 1
         entering = 1
         expected = 0
-        leaving, ratio = leaving_variable(d, 0, entering, np.float64, verbose)
+        leaving, ratio = leaving_variable(d, 0, entering, verbose)
         self.assertEqual(expected, leaving)
         # Test leaving_variable for entering 2
         entering = 2
         expected = 2
-        leaving, ratio = leaving_variable(d, 0, entering, np.float64, verbose)
+        leaving, ratio = leaving_variable(d, 0, entering, verbose)
         self.assertEqual(expected, leaving)
 
     def test_bland(self):
@@ -90,11 +84,7 @@ class Test(TestCase):
             print()
         # Test blends rule
         entering_expected, leaving_expected = (0, 2)
-        entering, leaving = bland(d, 0, np.float64, verbose)
-        self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
-        entering, leaving = bland(d, 0, Fraction, verbose)
-        self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
-        entering, leaving = bland(d, 0, int, verbose)
+        entering, leaving = bland(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_bland2(self):
@@ -111,7 +101,7 @@ class Test(TestCase):
             print()
         # Test blends rule
         entering_expected, leaving_expected = (0, 0)
-        entering, leaving = bland(d, 0, int, verbose)
+        entering, leaving = bland(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_coefficient(self):
@@ -128,7 +118,7 @@ class Test(TestCase):
             print()
         # Test largest_coefficient rule
         entering_expected, leaving_expected = (0, 2)
-        entering, leaving = largest_coefficient(d, 0, np.float64, verbose)
+        entering, leaving = largest_coefficient(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_coefficient2(self):
@@ -145,7 +135,7 @@ class Test(TestCase):
             print()
         # Test largest_coefficient rule
         entering_expected, leaving_expected = (0, 0)
-        entering, leaving = largest_coefficient(d, 0, np.float64, verbose)
+        entering, leaving = largest_coefficient(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_coefficient3(self):
@@ -162,7 +152,7 @@ class Test(TestCase):
             print()
         # Test largest_coefficient rule
         entering_expected, leaving_expected = (1, 1)
-        entering, leaving = largest_coefficient(d, 0, np.float64, verbose)
+        entering, leaving = largest_coefficient(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_increase4(self):
@@ -176,11 +166,7 @@ class Test(TestCase):
             print(d)
             print()
         entering_expected, leaving_expected = (0, 0)
-        entering, leaving = largest_increase(d, 0, np.float64, verbose)
-        self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
-        entering, leaving = largest_increase(d, 0, Fraction, verbose)
-        self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
-        entering, leaving = largest_increase(d, 0, int, verbose)
+        entering, leaving = largest_increase(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_increase(self):
@@ -196,7 +182,7 @@ class Test(TestCase):
             print()
         # Test largest_coefficient rule
         entering_expected, leaving_expected = (1, 1)
-        entering, leaving = largest_increase(d, 0, np.float64, verbose)
+        entering, leaving = largest_increase(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_increase2(self):
@@ -213,7 +199,7 @@ class Test(TestCase):
             print()
         # Test largest_coefficient rule
         entering_expected, leaving_expected = (0, 0)
-        entering, leaving = largest_increase(d, 0, np.float64, verbose)
+        entering, leaving = largest_increase(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_increase3(self):
@@ -283,7 +269,7 @@ class Test(TestCase):
         b = np.array([2])
         d = dictionary.Dictionary(c, a, b, np.float64)
         print(d)
-        entering_expected, leaving_expected = (0, None)
+        entering_expected, leaving_expected = (math.inf, None)
         entering, leaving = largest_increase(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 

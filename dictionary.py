@@ -193,7 +193,10 @@ class Dictionary:
     #   a) Add the coefficient of the pivot variable in the given row, multiplied by the pivot row, to the given row.
     def float_fraction_pivot(self, entering, leaving, verbose=False):
         # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
-        temp = self.N[entering]
+        try:
+            temp = self.N[entering]
+        except:
+            print(entering)
         self.N[entering] = self.B[leaving]
         self.B[leaving] = temp
         # 1) Save pivot coefficient into a variable

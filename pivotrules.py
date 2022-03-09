@@ -29,13 +29,13 @@ import numpy as np
 # 4) Pick leaving variable for which the corresponding constraint limits the growth of the entering variable the most.
 #    (Use helper function)
 # 5) return entering and leaving
-def bland(d, eps, dtype, verbose=False):
+def bland(d, eps, verbose=False):
     # 1) Initialize entering and leaving to None
     entering = leaving = None
     # 2) Iterate over the objective function variable coefficients
     for col in range(1, d.C.shape[1]):
         # a) Check if eps-corrected coefficient is non-positive
-        value = eps_correction(d.C[0, col], eps, dtype)
+        value = eps_correction(d.C[0, col], eps, d.dtype)
         if value <= 0:
             # True: continue with next iteration
             continue
@@ -49,7 +49,7 @@ def bland(d, eps, dtype, verbose=False):
         return None, None
     # 4) Sat leaving variable to the basis variable which limits the growth of the entering variable the most.
     #    (Use helper function)
-    leaving, _ = leaving_variable(d, eps, entering, dtype)
+    leaving, _ = leaving_variable(d, eps, entering)
     # 5) return entering and leaving
     return entering, leaving
 
@@ -80,7 +80,7 @@ def bland(d, eps, dtype, verbose=False):
 # 3) Check if entering is None
 #   True: return None, None
 # 4) return entering, leaving variable which limits the growth of the entering variable the most
-def largest_coefficient(d, eps, dtype, verbose=False):
+def largest_coefficient(d, eps, verbose=False):
     # 1) Initialize entering and leaving to None and
     #    largest_until_now to 0
     entering = leaving = None
@@ -88,7 +88,7 @@ def largest_coefficient(d, eps, dtype, verbose=False):
     # 2) For each coefficient in OF
     for col in range(1, d.C.shape[1]):
         # a) Get coefficient value through eps_correction
-        current_value = eps_correction(d.C[0, col], eps, dtype)
+        current_value = eps_correction(d.C[0, col], eps, d.dtype)
         # b) Check if eps-corrected coefficient value is greater than largest_until_now
         if largest_until_now < current_value:
             # True: Set largest_until_now to coefficient value
@@ -101,7 +101,7 @@ def largest_coefficient(d, eps, dtype, verbose=False):
         # True: return None, None
         return None, None
     # 4) return entering, leaving variable which limits the growth of the entering variable the most
-    leaving, _ = leaving_variable(d, eps, entering, dtype)
+    leaving, _ = leaving_variable(d, eps, entering)
     return entering, leaving
 
 
@@ -130,26 +130,28 @@ def largest_coefficient(d, eps, dtype, verbose=False):
 #             entering = current potential entering variable
 #             leaving = potential leaving variable
 # 3) return found results
-def largest_increase(d, eps, dtype, verbose=False):
+def largest_increase(d, eps, verbose=False):
     # 1) Initialize largest_increase_until_now = 0 and
     #    entering and leaving to be None
     entering = leaving = None
-    largest_increase_until_now = 0
+    largest_increase_until_now = -math.inf
     # 2) For each variable coefficient in the OF
     for col in range(1, d.C.shape[1]):
         # a) Check if eps-corrected coefficient value is non-positive
-        coefficient = eps_correction(d.C[0, col], eps, dtype)
+        coefficient = eps_correction(d.C[0, col], eps, d.dtype)
         if coefficient <= 0:
             # True: continue with next iteration.
             continue
         # b) Get ratio for the current potential entering variable (Note that ratio equals the increase of the variable)
-        leaving_given_col, ratio = leaving_variable(d, eps, col - 1, dtype, verbose)
+        leaving_given_col, ratio = leaving_variable(d, eps, col - 1, verbose)
         # c) Check whether the entering variable is unbounded (If all constraint coefficients
         # of a non-basic variable is non-negative then the dictionary is unbounded, and then
         # the 'leaving_variable()' helper method will return None, math.inf)
         if leaving_given_col is None:
             # True: In case of unbounded we need to return Some, none, and so we set the entering variable to infinity
+            #       and the leaving variable to None
             entering = math.inf
+            leaving = None
             break
         # d) Calculate how much the OF is increased: OF_coefficient * ratio
         increase = d.C[0, col] * ratio
@@ -178,7 +180,7 @@ def largest_increase(d, eps, dtype, verbose=False):
 #             Save leaving variable
 # 3) Check if leaving is None (Implies that all constrain coefficients are positive; thus the problem is unbounded)
 # 4) return leaving variable, along with least(ratio)-until-now:
-def leaving_variable(d, eps, entering, dtype, verbose=False):
+def leaving_variable(d, eps, entering, verbose=False):
     # 1) Initialize the variable least_until_now to be infinite and
     #    the leaving variable to be None
     leaving = None
@@ -187,12 +189,12 @@ def leaving_variable(d, eps, entering, dtype, verbose=False):
     for row in range(1, d.C.shape[0]):
         # a) Check if constraint coefficient of entering variable is non-negative
         #    (Note: For a tableau or algebraic notation the coefficient would have to be positive instead)
-        coefficient = eps_correction(d.C[row, entering + 1], eps, dtype)
+        coefficient = eps_correction(d.C[row, entering + 1], eps, d.dtype)
         if coefficient >= 0:
             #       go to next iteration
             continue
         # b) Calculate: ratio = constraint constant / negative constraint coefficient of entering variable
-        constant = eps_correction(d.C[row, 0], eps, dtype)  # TODO !!!!!!! Might be a problem with negative b values? Can b values be negative once we reach the simple simplex?
+        constant = eps_correction(d.C[row, 0], eps, d.dtype)  # TODO !!!!!!! Might be a problem with negative b values? Can b values be negative once we reach the simple simplex?
         new_ratio = constant / -coefficient  # TODO: If constant equals zero, should we continue to the next iteration?
         # c) Check if ratio is less than least until now
         if least_until_now > new_ratio:

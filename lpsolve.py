@@ -135,7 +135,7 @@ def simplex(d, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
             print(f"Check if there are any zero constants: {d.C[:, 0][1:]}")
         # Degenerate steps check
         for const in d.C[:, 0][1:]:
-            if eps_correction(const, eps) == 0:  # New dictionary is degenerate
+            if eps_correction(const, eps, d.dtype) == 0:  # New dictionary is degenerate
                 degenerate_counter += 1
                 #
                 if degenerate_counter > degenerate_steps_before_anti_cycle:
