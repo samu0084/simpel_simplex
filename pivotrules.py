@@ -29,16 +29,27 @@ import numpy as np
 # 4) Pick leaving variable for which the corresponding constraint limits the growth of the entering variable the most.
 #    (Use helper function)
 # 5) return entering and leaving
-def bland(d, eps, verbose=False):
+def bland(d, eps, dtype, verbose=False):
+    # 1) Initialize entering and leaving to None
     entering = leaving = None
+    # 2) Iterate over the objective function variable coefficients
     for col in range(1, d.C.shape[1]):
-        value = eps_correction(d.C[0, col], eps)
-        if value > 0:
-            entering = col - 1
-            break
-    if entering is None:  # Is optimal
-        return entering, leaving
-    leaving, ratio = leaving_variable(d, eps, entering)
+        # a) Check if eps-corrected coefficient is non-positive
+        value = eps_correction(d.C[0, col], eps, dtype)
+        if value <= 0:
+            # True: continue with next iteration
+            continue
+        # b) Set entering to the current variable and break out
+        entering = col - 1
+        break
+    # 3) Check if entering is None
+    # (If so then all variable coefficients in the OF is non-positive, and thus the dictionary is optimal)
+    if entering is None:
+        # True: return None, None
+        return None, None
+    # 4) Sat leaving variable to which limits the growth of the entering variable the most. (Use helper function)
+    leaving, _ = leaving_variable(d, eps, entering, dtype)
+    # 5) return entering and leaving
     return entering, leaving
 
 
@@ -68,17 +79,17 @@ def bland(d, eps, verbose=False):
 # 3) Check if entering is None
 #   True: return None, None
 # 4) return entering, leaving variable which limits the growth of the entering variable the most
-def largest_coefficient(d, eps, verbose=False):
+def largest_coefficient(d, eps, dtype, verbose=False):
     entering = leaving = None
     largest_found = 0
     for col in range(1, d.C.shape[1]):
-        current_value = eps_correction(d.C[0, col], eps)
+        current_value = eps_correction(d.C[0, col], eps, dtype)
         if largest_found < current_value:
             largest_found = current_value
             entering = col - 1
     if entering is None:  # Is optimal
         return entering, leaving
-    leaving, _ = leaving_variable(d, eps, entering)
+    leaving, _ = leaving_variable(d, eps, entering, dtype)
     return entering, leaving
 
 # Pick as entering variable, the variable which can be increased the most.
@@ -223,7 +234,7 @@ def leaving_variable(d, eps, entering, dtype, verbose=False):
         coefficient = eps_correction(d.C[row, entering + 1], eps, dtype)
         if coefficient >= 0:
             continue
-        constant = eps_correction(d.C[row, 0], eps)
+        constant = eps_correction(d.C[row, 0], eps, dtype)
         # if constant == 0:  # TODO: Is this correct?
         #     continue
         new_ratio = constant / -coefficient
