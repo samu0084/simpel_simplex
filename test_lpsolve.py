@@ -232,7 +232,6 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
                                  res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
 
     def test_linprog_vs_ours_on_infeasible(self):
-        # TODO: Only works after we implemented the two-phase simplex method
         random.seed()
         for i in range(50):
             n = random.randint(1, 50)

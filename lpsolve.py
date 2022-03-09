@@ -34,8 +34,6 @@ def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: bland(d, e
     # LPResult.OPTIMAL,d, where d is an optimal dictionary.
     return lp_solve_two_phase(c, a, b, dtype, eps, pivotrule, verbose)
 
-    # lp_solve_two_phase(c, A, b, dtype, eps, pivotrule, verbose)
-
 
 def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     d = Dictionary(c, a, b, dtype)
@@ -71,6 +69,53 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
 """
 
 
+# Simplex algorithm
+#
+# Input is LP in standard form given by vectors and matrices
+# c,A,b.
+#
+# eps>=0 is such that numbers in the closed interval [-eps,eps]
+# are to be treated as if they were 0.
+#
+# pivotrule is a rule used for pivoting. Cycling is prevented by
+# switching to Bland's rule as needed. TODO: Check when to shift to bland rule
+#
+# If verbose is True it outputs possible useful information about
+# the execution, e.g. the sequence of pivot operations
+# performed. Nothing is required.
+#
+# If LP is infeasible the return value is LPResult.INFEASIBLE, None
+# We assume the dictionary is infeasible if the origin solution is feasible.
+#
+# If LP is unbounded the return value is LPResult.UNBOUNDED, None
+# A dictionary on standard form is unbounded if, for any non-zero variable in the OF all restrictions are positive.
+#
+# If LP has an optimal solution the return value is
+# LPResult.OPTIMAL,d, where d is an optimal dictionary.
+#
+#
+# Fractions has to be divided periodically by the common factors of the denominater and the nominator.
+# This could be here of in the pivot function TODO Check whether this is necessary
+#
+# (Skip step for now) 0) Set max_degenerate_steps_before_anti_cycle_mode to whatever you choose and
+#                        consecutive_degenerate_steps = 0
+# 1) Check if dictionary is not origo feasible
+#   True: return LPResult.INFEASIBLE, None
+# 2) Get entering and leaving variable using the pivot rule
+# 3) While entering and leaving is None (We haven't found the optimal, nor that the dictionary is unbounded)
+#       a) pivot(entering, leaving)
+#       b) Check if dictionary is degenerate (If any of the constraint constants are zero)
+#           True: (Skip step for now) Add one to count of consecutive degenerate steps
+#                 (Skip step for now) Check if consecutive degenerate steps have reached the
+#                                     max_degenerate_steps_before_anti_cycle_mode
+#                       True: Shift to an anti cycle mode (We use bland's rule for pivoting)
+#           False: Set consecutive degenerate steps = 0
+#       c) If dtype = Fraction: divide each fraction by the greatest common denominator of
+#          fraction nominator and denominator TODO: Is this necessary?
+#       d) Get next entering and leaving variable using the pivot rule
+# 4) Check if the dictionary is unbounded (entering is not None and leaving is None)
+#   True: return LPResult.UNBOUNDED, None
+# 5) return LPResult.OPTIMAL, d
 def simplex(d, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
     degenerate_steps_before_anti_cycle = 10
     if (d.C[1:, 0] < 0).any():  # infeasible (Without auxiliary)
@@ -109,6 +154,22 @@ def simplex(d, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
     return LPResult.OPTIMAL, d
 
 
+# 0) Construct dictionary
+# 1) Check if we can go directly to the simplex method (all constraint constants are greater than 0)
+#       True: return simplex(...)
+# 2) Set the OF to minus the auxiliary variable
+# 3) Identify constraint with most negative constant, and set the leaving variable to the corresponding basic variable
+# 4) pivot(auxiliary variable, leaving identified above)
+# 5) Use the simplex method in the dictionary
+# 6) Check if simplex method is unbounded
+#       True: return INFEASIBLE, None TODO: Check if the original problem can be unbounded if the auxiliary problem is.
+# 7) Check if the auxiliary variable is in the basis
+#       True: pivot the auxiliary variable out of the basis.
+# 8) Get location of auxiliary variable in the non-basis
+# 9) Delete the column with the auxiliary variable, and
+#    delete the element of N holding the auxiliary variable
+# 10) Correct the OF
+# 11) return simplex(...)
 def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: bland(d, eps), verbose=False):
     if (b >= 0).all():
         if verbose:
@@ -187,11 +248,6 @@ def basis_index_auxiliary_variable(d: dictionary.Dictionary, verbose):
     return None
 
 
-def push_elements_left(array, from_index):
-    for i in range(from_index, 0):
-        1
-
-
 def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     # identify and delete column of auxiliary variable
     basis_index_of_auxiliary_variable = basis_index_auxiliary_variable(d_auxiliary, verbose)
@@ -199,10 +255,10 @@ def phase_two(d_auxiliary, c, a, b, dtype, eps=0, pivotrule=lambda D: bland(D, e
     d_auxiliary.C = np.delete(d_auxiliary.C, basis_index_of_auxiliary_variable + 1, 1)
     # correct OF
     d_auxiliary.C[0, 1:] = c
-    aggregate = np.full((len(c)+1), 0, dtype)
+    aggregate = np.full((len(c) + 1), 0, dtype)
     for index, b in enumerate(d_auxiliary.B):
         if b <= len(c):
-            aggregate += d_auxiliary.C[index + 1, :] * c[b-1]
+            aggregate += d_auxiliary.C[index + 1, :] * c[b - 1]
             d_auxiliary.C[0, b] = 0
     d_auxiliary.C[0, :] += aggregate
     if verbose:
@@ -273,3 +329,31 @@ def dictionary_to_input_arrays(d, verbose=False):
             print(f"a_eq: {a_eq}")
             print(f"b_eq: {b_eq}")
         return c_plus, a_ub_plus, b_ub, a_eq, b_eq
+
+    def lp_solve_new(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
+        # Simplex algorithm
+        #
+        # Input is LP in standard form given by vectors and matrices
+        # c,A,b.
+        #
+        # eps>=0 is such that numbers in the closed interval [-eps,eps]
+        # are to be treated as if they were 0.
+        #
+        # pivotrule is a rule used for pivoting. Cycling is prevented by
+        # switching to Bland's rule as needed.
+        #
+        # If verbose is True it outputs possible useful information about
+        # the execution, e.g. the sequence of pivot operations
+        # performed. Nothing is required.
+        #
+        # If LP is infeasible the return value is LPResult.INFEASIBLE,None
+        ### doing the simplex method we assume that the origon solution is feasible. If this is not the case we assume the dictionary is infeasible.
+        # If LP is unbounded the return value is LPResult.UNBOUNDED,None
+        ### a dictionary on standart form is unbounded if, for any non-zero variable in the dictionary all restrictions are positive.
+        #
+        # If LP has an optimal solution the return value is
+        # LPResult.OPTIMAL,d, where d is an optimal dictionary.
+        #
+
+        #
+        return LPResult.INFEASIBLE, None

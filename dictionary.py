@@ -143,8 +143,17 @@ class Dictionary:
         if self.dtype == int:
             self.integer_pivot(entering, leaving, verbose)
         else:
-            self.float_pivot(entering, leaving, verbose)
+            self.float_fraction_pivot(entering, leaving, verbose)
 
+    # Note that the last pivot coefficient variable is initialized to 1.
+    # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
+    # 1) Save pivot coefficient
+    # 3) Multiply all non-pivot rows by the pivot coefficient
+    # 4) Set pivot coefficient in d.C to last pivot coefficient? (Negative of last_pivot)
+    # 5) Divide all non-pivot rows by the negative of last pivot coefficient
+    #    (Note that the last-pivot variable already contains the negative of the last pivot coefficient)
+    # 6) Input new expression for the leaving variable into all other rows
+    # 7) Save the NEGATIVE pivot coefficient as last pivot coefficient, preparing for the next pivot.
     def integer_pivot(self, entering, leaving, verbose=False):
         a = self.C[leaving + 1, entering + 1]
         lastpivot = self.lastpivot
@@ -164,6 +173,7 @@ class Dictionary:
         self.lastpivot = -a
         # Input value for previous basic
         self.C[leaving + 1, entering + 1] = -lastpivot
+        # Input new expression for the leaving variable into all other rows
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
                 coefficient = self.C[row, entering + 1]
@@ -182,7 +192,15 @@ class Dictionary:
             print(self)
             print(f"self.lastpivot: {self.lastpivot}")
 
-    def float_pivot(self, entering, leaving, verbose=False):
+    # Pivot entering and leaving
+    #
+    # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
+    # 1) Save pivot coefficient into a variable
+    # 2) Set pivot coefficient inside d.C to 1
+    # 3) Divide pivot row by the saved pivot coefficient
+    # 4) For each non-pivot row
+    #   a) Add the coefficient of the pivot variable in the given row, multiplied by the pivot row, to the given row.
+    def float_fraction_pivot(self, entering, leaving, verbose=False):
         d_before_pivot = self.__str__()
         if verbose:
             print(f"temp = self.N[entering]            temp = {self.N[entering]}")
@@ -201,13 +219,8 @@ class Dictionary:
             print("Save pivot coefficient:")
             print(f"{a} = self.C[l + 1, k + 1]")
         # Calculations on pivot row
-        # TODO make sure a cannot be zero (why might we ever pivot with something that is zero? Auxiliary?) The try is for debugging
-        try:
-            self.C[leaving + 1, :] /= -a
-            self.C[leaving + 1, entering + 1] = 1 / a
-        except:
-            print(f"An attempt was just made to pivot(entering, leaving): entering = {entering}; leaving = {leaving}")
-            print(d_before_pivot)
+        self.C[leaving + 1, :] /= -a
+        self.C[leaving + 1, entering + 1] = 1 / a
         if verbose:
             print("Calculation on pivot row:")
             print(self)
@@ -220,3 +233,24 @@ class Dictionary:
         if verbose:
             print("Calculation on remaining rows:")
             print(self)
+
+    def float_fraction_pivot_new(self, entering, leaving, verbose=False):
+        # Shift indices
+        temp = self.N[entering]
+        self.N[entering] = self.B[leaving]
+        self.B[leaving] = temp
+        # Save pivot coefficient
+        a = self.C[leaving + 1, entering + 1]
+        # Calculations on pivot row
+        self.C[leaving + 1, :] /= -a  # TODO: is it correct to have minus here?
+        self.C[leaving + 1, entering + 1] = 1 / a  # TODO: is it correct to have minus here?
+        # Calculations on remaining rows
+        for row in range(self.C.shape[0]):  # TODO: check this loop - can it be simplified using the general approach?
+            if row != leaving + 1:
+                c = self.C[row, entering + 1]
+                self.C[row, :] += c * self.C[leaving + 1, :]
+                self.C[row, entering + 1] = c * self.C[leaving + 1, entering + 1]
+        if verbose:
+            print(f"Dictionary after d.pivot({entering}, {leaving})")
+            print(self)
+            print()

@@ -6,8 +6,8 @@ import numpy as np
 from lpsolve import simple_simplex
 
 
-def experiment_execution_time(random_lp_choice, cmp_function, iterations, dtype, pivotrule_function):
-    random.seed()
+def experiment_execution_time(seed_for_random, random_lp_choice, cmp_function, iterations, dtype, pivotrule_function):
+    random.seed(seed_for_random)
     duration_sum_linprog = 0
     duration_sum_lp_solve = 0
     for i in range(iterations):
