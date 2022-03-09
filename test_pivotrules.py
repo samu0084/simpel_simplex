@@ -18,7 +18,7 @@ from pivotrules import largest_increase
 
 class Test(TestCase):
     def test_leaving_variable(self):
-        verbose = False
+        verbose = True
         c = np.array([7, 4])
         a = np.array([[2, 1],
                       [1, 1],
@@ -40,6 +40,7 @@ class Test(TestCase):
         # Test leaving_variable for entering 1
         entering = 1
         expected = 1
+        print(d)
         leaving, ratio = leaving_variable(d, 0, entering, np.float64, verbose)
         self.assertEqual(expected, leaving)
         leaving, ratio = leaving_variable(d, 0, entering, Fraction, verbose)
@@ -175,7 +176,11 @@ class Test(TestCase):
             print(d)
             print()
         entering_expected, leaving_expected = (0, 0)
-        entering, leaving = largest_increase(d, 0, verbose)
+        entering, leaving = largest_increase(d, 0, np.float64, verbose)
+        self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
+        entering, leaving = largest_increase(d, 0, Fraction, verbose)
+        self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
+        entering, leaving = largest_increase(d, 0, int, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_increase(self):
@@ -191,10 +196,10 @@ class Test(TestCase):
             print()
         # Test largest_coefficient rule
         entering_expected, leaving_expected = (1, 1)
-        entering, leaving = largest_increase(d, 0, verbose)
+        entering, leaving = largest_increase(d, 0, np.float64, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
-    def test_largest_increase2(self):  # TODO: implement the correct expected for this test
+    def test_largest_increase2(self):
         verbose = False
         # Make dictionary
         c = np.array([5, 4, 3])
@@ -208,7 +213,7 @@ class Test(TestCase):
             print()
         # Test largest_coefficient rule
         entering_expected, leaving_expected = (0, 0)
-        entering, leaving = largest_increase(d, 0, verbose)
+        entering, leaving = largest_increase(d, 0, np.float64, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
     def test_largest_increase3(self):
@@ -235,7 +240,7 @@ class Test(TestCase):
         a = np.array([[-13]])
         b = np.array([2])
         d = dictionary.Dictionary(c, a, b, np.float64)
-        print(d)
+
         entering_expected, leaving_expected = (0, None)
         entering, leaving = largest_coefficient(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
