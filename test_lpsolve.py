@@ -134,10 +134,6 @@ x5 =  2/3 +  1/3*x3 -  1/3*x4"""
         self.assertEqual(expected_d, d.__str__())
 
     def test_given_examples_integer_4(self):
-        # TODO - test fails - File "C:\Users\sx5\PycharmProjects\optimization\lpsolve.py", line 204, in lp_solve_two_phase
-        #     aggregate += v3
-        # TODO: solve and compare to linprog solution
-        # numpy.core._exceptions._UFuncOutputCastingError: Cannot cast ufunc 'add' output from dtype('O') to dtype('int32') with casting rule 'same_kind'
         verbose = False
         c, a, b = exercise2_5()
         if verbose:
@@ -261,44 +257,3 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
         b_eq = np.array([5])
         res_linprog = lpsolve.linprog(c, a, b, a_eq, b_eq)
         print(res_linprog)
-
-
-
-"""
-res: OptimizeResult
-A scipy.optimize.OptimizeResult consisting of the fields:
-
-x1-D array
-The values of the decision variables that minimizes the objective function while satisfying the constraints.
-
-fun : float
-The optimal value of the objective function c @ x.
-
-slack : 1-D array
-The (nominally positive) values of the slack variables, b_ub - A_ub @ x.
-
-con : 1-D array
-The (nominally zero) residuals of the equality constraints, b_eq - A_eq @ x.
-
-success : bool
-True when the algorithm succeeds in finding an optimal solution.
-
-status : int
-An integer representing the exit status of the algorithm.
-
-0 : Optimization terminated successfully.
-
-1 : Iteration limit reached.
-
-2 : Problem appears to be infeasible.
-
-3 : Problem appears to be unbounded.
-
-4 : Numerical difficulties encountered.
-
-message : str
-A string descriptor of the exit status of the algorithm.
-
-nit : int
-The total number of iterations performed in all phases.
-"""

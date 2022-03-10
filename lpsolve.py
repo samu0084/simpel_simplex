@@ -108,12 +108,12 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
 # LPResult.OPTIMAL,d, where d is an optimal dictionary.
 #
 #
-# Fractions has to be divided periodically by the common factors of the denominater and the nominator.
-# This could be here of in the pivot function TODO Check whether this is necessary
+# In general when working with fractions one has to divided periodically by the common factors, to prevent an explosion
+# of the numerator and the denominator. Note that this is done automatically when using pythons Fraction type.
 #
-# (Skip step for now) 0) Set max_degenerate_steps_before_anti_cycle_mode to whatever you choose and
-#                        consecutive_degenerate_steps = 0
-# 1) Check if dictionary is not origo feasible
+# 0) Set max_degenerate_steps_before_anti_cycle_mode to whatever you choose and
+#    consecutive_degenerate_steps = 0
+# 1) Check if dictionary is not origo-feasible
 #   True: return LPResult.INFEASIBLE, None
 # 2) Get entering and leaving variable using the pivot rule
 # 3) While entering and leaving is None (We haven't found the optimal, nor that the dictionary is unbounded)
@@ -123,9 +123,7 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
 #                 Check if consecutive degenerate steps have reached the max_degenerate_steps_before_anti_cycle_mode
 #                       True: Shift to an anti cycle mode (We use bland's rule for anti-cycle pivoting)
 #           False: Set consecutive degenerate steps = 0
-#       c) If dtype = Fraction: divide each fraction by the greatest common denominator of
-#          fraction nominator and denominator TODO: Is this necessary?
-#       d) Get next entering and leaving variable using the pivot rule
+#       c) Get next entering and leaving variable using the pivot rule
 # 4) Check if the dictionary is unbounded (entering is not None and leaving is None)
 #   True: return LPResult.UNBOUNDED, None
 # 5) return LPResult.OPTIMAL, d
