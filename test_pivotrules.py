@@ -10,8 +10,8 @@ import dictionary
 from dictionary import Dictionary
 from experiments import random_lp_including_negative_b_values, random_lp_only_none_negative_b_values
 from lpresult import LPResult
-from lpsolve import lp_solve, simple_simplex, lp_solve_two_phase
-from pivotrules import leaving_variable, largest_increase2
+from lpsolve import lp_solve
+from pivotrules import leaving_variable
 from pivotrules import bland
 from pivotrules import largest_coefficient
 from pivotrules import largest_increase
@@ -230,7 +230,7 @@ class Test(TestCase):
         entering, leaving = largest_coefficient(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
-        res, d = lp_solve_two_phase(c, a, b, np.float64, pivotrule=lambda d, eps: largest_coefficient(d, eps, verbose))
+        res, d = lp_solve(c, a, b, np.float64, pivotrule=lambda d, eps: largest_coefficient(d, eps, verbose))
         self.assertEqual(LPResult.UNBOUNDED, res)
 
     def test_unbounded_bland_one(self):
@@ -244,7 +244,7 @@ class Test(TestCase):
         entering, leaving = bland(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
-        res, d = lp_solve_two_phase(c, a, b, np.float64, pivotrule=lambda d, eps: bland(d, eps, verbose))
+        res, d = lp_solve(c, a, b, np.float64, pivotrule=lambda d, eps: bland(d, eps, verbose))
         self.assertEqual(LPResult.UNBOUNDED, res)
 
     def test_unbounded_largest_coefficient_two(self):
@@ -258,7 +258,7 @@ class Test(TestCase):
         entering, leaving = largest_coefficient(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
-        res, d = lp_solve_two_phase(c, a, b, np.float64, pivotrule=lambda d, eps: largest_coefficient(d, eps, verbose))
+        res, d = lp_solve(c, a, b, np.float64, pivotrule=lambda d, eps: largest_coefficient(d, eps, verbose))
         self.assertEqual(LPResult.UNBOUNDED, res)
 
     def test_unbounded_largest_increase_one(self):
@@ -272,7 +272,7 @@ class Test(TestCase):
         entering, leaving = largest_increase(d, 0, verbose)
         self.assertEqual((entering_expected, leaving_expected), (entering, leaving))
 
-        res, d = lp_solve_two_phase(c, a, b, np.float64, pivotrule=lambda d, eps: largest_increase(d, eps, verbose))
+        res, d = lp_solve(c, a, b, np.float64, pivotrule=lambda d, eps: largest_increase(d, eps, verbose))
         self.assertEqual(LPResult.UNBOUNDED, res)
 
     def test_largest_increase_two(self):
@@ -288,7 +288,7 @@ class Test(TestCase):
         b = np.array([12, 13, 10, 0, 10, 0])
         d = dictionary.Dictionary(c, a, b, np.float64)
         print(d)
-        res, d = lp_solve_two_phase(c, a, b, np.float64, pivotrule=lambda d, eps: largest_increase(d, eps, verbose))
+        res, d = lp_solve(c, a, b, np.float64, pivotrule=lambda d, eps: largest_increase(d, eps, verbose))
         res_linprog = linprog(-c, a, b, method="simplex")
         if res == LPResult.OPTIMAL and not d.value() - eps <= -res_linprog.fun <= d.value() + eps:
             print(res_linprog)
@@ -334,57 +334,57 @@ class Test(TestCase):
 
     def test_non_negative_b_bland(self):
         self.assertTrue(
-            iterative_results_comparison(1, 20, True, lp_solve_two_phase, np.float64, lambda d, eps: bland(d, eps),
+            iterative_results_comparison(1, 20, True, lp_solve, np.float64, lambda d, eps: bland(d, eps),
                                          0.0000001))
         self.assertTrue(
-            iterative_results_comparison(1, 20, True, lp_solve_two_phase, Fraction, lambda d, eps: bland(d, eps),
+            iterative_results_comparison(1, 20, True, lp_solve, Fraction, lambda d, eps: bland(d, eps),
                                          0.0000001))
         self.assertTrue(
-            iterative_results_comparison(1, 20, True, lp_solve_two_phase, int, lambda d, eps: bland(d, eps), 0.0000001))
+            iterative_results_comparison(1, 20, True, lp_solve, int, lambda d, eps: bland(d, eps), 0.0000001))
 
     def test_non_negative_b_largest_coefficient(self):
-        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve_two_phase, np.float64,
+        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve, np.float64,
                                                      lambda d, eps: largest_coefficient(d, eps), 0.0000001))
-        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve_two_phase, Fraction,
+        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve, Fraction,
                                                      lambda d, eps: largest_coefficient(d, eps), 0.0000001))
-        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve_two_phase, int,
+        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve, int,
                                                      lambda d, eps: largest_coefficient(d, eps), 0.0000001))
 
     def test_non_negative_b_largest_increase(self):
-        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve_two_phase, np.float64,
+        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve, np.float64,
                                                      lambda d, eps: largest_increase(d, eps), 0.0000001))
-        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve_two_phase, Fraction,
+        self.assertTrue(iterative_results_comparison(1, 20, True, lp_solve, Fraction,
                                                      lambda d, eps: largest_increase(d, eps), 0.0000001))
         self.assertTrue(
-            iterative_results_comparison(1, 20, True, lp_solve_two_phase, int, lambda d, eps: largest_increase(d, eps),
+            iterative_results_comparison(1, 20, True, lp_solve, int, lambda d, eps: largest_increase(d, eps),
                                          0.0000001))
 
     def test_allowing_negative_b_bland(self):
         self.assertTrue(
-            iterative_results_comparison(1, 20, False, lp_solve_two_phase, np.float64, lambda d, eps: bland(d, eps),
+            iterative_results_comparison(1, 20, False, lp_solve, np.float64, lambda d, eps: bland(d, eps),
                                          0.0000001))
         self.assertTrue(
-            iterative_results_comparison(1, 20, False, lp_solve_two_phase, Fraction, lambda d, eps: bland(d, eps),
+            iterative_results_comparison(1, 20, False, lp_solve, Fraction, lambda d, eps: bland(d, eps),
                                          0.0000001))
         self.assertTrue(
-            iterative_results_comparison(1, 20, False, lp_solve_two_phase, int, lambda d, eps: bland(d, eps),
+            iterative_results_comparison(1, 20, False, lp_solve, int, lambda d, eps: bland(d, eps),
                                          0.0000001))
 
     def test_allowing_negative_b_largest_increase(self):
-        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve_two_phase, np.float64,
+        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve, np.float64,
                                                      lambda d, eps: largest_increase(d, eps), 0.0000001))
-        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve_two_phase, Fraction,
+        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve, Fraction,
                                                      lambda d, eps: largest_increase(d, eps), 0.0000001))
         self.assertTrue(
-            iterative_results_comparison(1, 20, False, lp_solve_two_phase, int, lambda d, eps: largest_increase(d, eps),
+            iterative_results_comparison(1, 20, False, lp_solve, int, lambda d, eps: largest_increase(d, eps),
                                          0.0000001))
 
     def test_allowing_negative_b_largest_coefficient(self):
-        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve_two_phase, np.float64,
+        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve, np.float64,
                                                      lambda d, eps: largest_coefficient(d, eps), 0.0000001))
-        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve_two_phase, int,
+        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve, Fraction,
                                                      lambda d, eps: largest_coefficient(d, eps), 0.0000001))
-        self.assertTrue(iterative_results_comparison(1, 20, False, lp_solve_two_phase, dtype=int,
+        self.assertTrue(iterative_results_comparison(2, 20, False, lp_solve, dtype=int,
                                                      pivotrule=lambda d, eps: largest_coefficient(d, eps), eps=0.0000001))
 
 def iterative_results_comparison(seed, iterations, only_none_negative_b_values, our_simplex, dtype, pivotrule=None,

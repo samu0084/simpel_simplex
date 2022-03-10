@@ -11,7 +11,7 @@ import lpsolve
 from dictionary import Dictionary
 from experiments import compare_to_linprog, random_lp_only_none_negative_b_values, random_lp_including_negative_b_values
 from lpresult import LPResult
-from lpsolve import lp_solve, lp_solve_two_phase
+from lpsolve import lp_solve
 from scipy.optimize import linprog as linprog_original, linprog
 
 from pivotrules import bland
@@ -152,6 +152,50 @@ x5 =  2/3 +  1/3*x3 -  1/3*x4"""
         res, d = lp_solve(c, a, b, int)
         self.assertEqual(expected_res, res)
 
+    # This method is an attempt to recreate the situation from above
+
+    def test_problematic_pivot(self):
+        _, a, b = exercise2_5()
+        d_aux = Dictionary(None, a, b, dtype=int)
+
+        entering = d_aux.N.shape[0] - 1
+        leaving = lpsolve.lowest_constraint_const(d_aux)
+        expected_before_pivot = """ z =  0 -  0*x1 -  0*x2 -  1*x0
+x3 = -3 +  1*x1 +  1*x2 +  1*x0
+x4 = -1 +  1*x1 -  1*x2 +  1*x0
+x5 =  4 -  1*x1 -  2*x2 +  1*x0"""
+        self.assertEqual(expected_before_pivot, d_aux.__str__())
+        d_aux.pivot(entering, leaving)
+        expected_after_pivot = """ z = -3 +  1*x1 +  1*x2 -  1*x3
+x0 =  3 -  1*x1 -  1*x2 +  1*x3
+x4 =  2 -  0*x1 -  2*x2 +  1*x3
+x5 =  7 -  2*x1 -  3*x2 +  1*x3"""
+        print("Expected")
+        print(expected_after_pivot)
+        self.assertEqual(expected_after_pivot, d_aux.__str__())
+
+    def test_non_problematic_pivot(self):
+            _, a, b = exercise2_7()
+            d_aux = Dictionary(None, a, b, dtype=np.float64)
+            entering = d_aux.N.shape[0] - 1
+            leaving = lpsolve.lowest_constraint_const(d_aux)
+            d_aux.pivot(entering, leaving)
+            print("AFTER FLOAT pivot")
+            print(d_aux)
+            _, a, b = exercise2_7()
+            d_aux = Dictionary(None, a, b, dtype=int)
+
+            entering = d_aux.N.shape[0] - 1
+            leaving = lpsolve.lowest_constraint_const(d_aux)
+            d_aux.pivot(entering, leaving)
+            print("AFTER pivot")
+            print(d_aux)
+            expected_after_pivot = """ z = -3 +  1*x1 +  1*x2 -  1*x3
+x0 =  3 -  1*x1 -  1*x2 +  1*x3
+x4 =  2 -  0*x1 -  2*x2 +  1*x3
+x5 =  5 -  0*x1 -  3*x2 +  1*x3"""
+            self.assertEqual(expected_after_pivot, d_aux.__str__())
+
     def test_given_examples_integer_5(self):
         verbose = False
         c, a, b = exercise2_6()
@@ -172,13 +216,9 @@ x5 =  2/3 +  1/3*x3 -  1/3*x4"""
             print("Initial dictionary:")
             print(initial_d)
             print("------------------------")
-        expected_res = LPResult.OPTIMAL
-        print(linprog(-c, a, b))
-        # TODO: The problem is unbounded but we return infeasible
-        expected_d = """"""
+        expected_res = LPResult.UNBOUNDED
         res, d = lp_solve(c, a, b, int, verbose=verbose)
         self.assertEqual(expected_res, res)
-        self.assertEqual(expected_d, d.__str__())
 
     def test_two_phase_float_1(self):
         verbose = False

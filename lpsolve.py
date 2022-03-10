@@ -35,70 +35,53 @@ import scipy.optimize
 # 1) Check if we can go directly to the simplex method (all constraint constants are greater than 0)
 #       True: Construct dictionary
 #             return simplex(...)
-# 2) Set the OF to minus the auxiliary variable
+# 2) Construct auxiliary dictionary
 # 3) Set the entering variable to be the auxiliary variable
 # 4) Find the leaving variable, where the constraint have the numerically greatest negative constant
 # 5) pivot(auxiliary variable, leaving identified above)
 # 6) Use the simplex method in the dictionary
 # 7) Check if simplex method is unbounded
-#       True: return INFEASIBLE, None TODO: Check if the original problem can be unbounded if the auxiliary problem is.
+#       True: return INFEASIBLE, None
 # 8) Check if the auxiliary variable is in the basis
-#       True: pivot the auxiliary variable out of the basis.
+#       True: pivot the auxiliary variable out of the basis. The entering variable can be chosen arbitrarily
 # 9) Identify location of auxiliary variable in the non-basis
 # 10) Delete the column with the auxiliary variable, and
-#    delete the element of N holding the auxiliary variable
+#     delete the element of N holding the auxiliary variable
 # 11) Correct the OF
 # 12) return simplex(...)
 def lp_solve(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
-    # 1) Check if we can go directly to the simplex method (all constraint constants are non-negative)
     if (b >= 0).all():
-        # True: Construct dictionary
         d = dictionary.Dictionary(c, a, b, dtype)
-        #       return simplex(...)
         return simplex(d, eps, pivotrule)
-    # 2) Construct auxiliary dictionary
     d_aux = Dictionary(None, a, b, dtype)
-    # 3) Set the entering variable to be the auxiliary variable
     entering = d_aux.N.shape[0] - 1
-    # 4) Find the leaving variable, where the constraint have the numerically greatest negative constant
     leaving = lowest_constraint_const(d_aux)
-    # 5) pivot(auxiliary variable, leaving identified above)
     d_aux.pivot(entering, leaving)
-    # 6) Use the simplex method in the dictionary
     result_aux, d_aux = simplex(d_aux, eps, pivotrule)
-    # 7) Check if simplex method is unbounded
     if result_aux != LPResult.OPTIMAL:
-        # True: return INFEASIBLE, None TODO Check if the original problem can be unbounded if the auxiliary problem is.
         return LPResult.INFEASIBLE, None
-    # 8) Check if the auxiliary variable is in the basis
     is_auxiliary_variable_in_basis, position_in_basis = position_of_auxiliary_variable_in_basis(d_aux)
     if is_auxiliary_variable_in_basis:
-        # True: pivot the auxiliary variable out of the basis. The entering variable can be chosen arbitrarily
         entering = 0
         d_aux.pivot(entering, position_in_basis)
-    # 9) Identify location of auxiliary variable in the non-basis
     index_of_auxiliary_variable_in_basis = basis_index_auxiliary_variable(d_aux)
-    # 10) Delete the column with the auxiliary variable and the element of N holding the auxiliary variable
     d_aux.N = np.delete(d_aux.N, index_of_auxiliary_variable_in_basis, 0)
     d_aux.C = np.delete(d_aux.C, index_of_auxiliary_variable_in_basis + 1, 1)
-    # 11) Correct the OF
     d_aux.C[0, 1:] = c
     aggregate = np.full((len(c) + 1), 0, dtype)
     for index, b in enumerate(d_aux.B):
         if b <= len(c):
-            v1 = d_aux.C[index + 1, :]  # TODO: Gather these expressions
-            v2 = c[b - 1]
-            v3 = v1 * v2
-            aggregate += v3
+            aggregate = aggregate + d_aux.C[index + 1, :] * c[b - 1]
             d_aux.C[0, b] = 0
     d_aux.C[0, :] += aggregate
-    # 12) return simplex(...)
     return simplex(d_aux, eps=eps, pivotrule=pivotrule)
 
 
+# A simple wrapper method for the simplex algorithm which produces the dictionary and calls the simplex method.
 def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, eps=0), verbose=False):
     d = Dictionary(c, a, b, dtype)
     return simplex(d, eps, pivotrule, verbose)
+
 
 # Simplex algorithm
 #
@@ -136,10 +119,9 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
 # 3) While entering and leaving is None (We haven't found the optimal, nor that the dictionary is unbounded)
 #       a) pivot(entering, leaving)
 #       b) Check if dictionary is degenerate (If any of the constraint constants are zero)
-#           True: (Skip step for now) Add one to count of consecutive degenerate steps
-#                 (Skip step for now) Check if consecutive degenerate steps have reached the
-#                                     max_degenerate_steps_before_anti_cycle_mode
-#                       True: Shift to an anti cycle mode (We use bland's rule for pivoting)
+#           True: Add one to count of consecutive degenerate steps
+#                 Check if consecutive degenerate steps have reached the max_degenerate_steps_before_anti_cycle_mode
+#                       True: Shift to an anti cycle mode (We use bland's rule for anti-cycle pivoting)
 #           False: Set consecutive degenerate steps = 0
 #       c) If dtype = Fraction: divide each fraction by the greatest common denominator of
 #          fraction nominator and denominator TODO: Is this necessary?
@@ -148,93 +130,25 @@ def simple_simplex(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda D: bland(D, 
 #   True: return LPResult.UNBOUNDED, None
 # 5) return LPResult.OPTIMAL, d
 def simplex(d, eps=0, pivotrule=lambda d, eps: bland(d, eps=0), verbose=False):
-    degenerate_steps_before_anti_cycle = 10
-    if (d.C[1:, 0] < 0).any():  # infeasible (Without auxiliary)
+    consecutive_degenerate_steps_before_anti_cycle = 10
+    if (d.C[1:, 0] < 0).any():
         return LPResult.INFEASIBLE, None
-
-    degenerate_counter = 0
+    consecutive_degenerate_steps = 0
     entering, leaving = pivotrule(d, eps)
     while entering is not None and leaving is not None:
         d.pivot(entering, leaving)
-        # Degenerate steps check
         for const in d.C[:, 0][1:]:
             if eps_correction(const, eps, d.dtype) == 0:  # New dictionary is degenerate
-                degenerate_counter += 1
-                #
-                if degenerate_counter > degenerate_steps_before_anti_cycle:
+                consecutive_degenerate_steps += 1
+                if consecutive_degenerate_steps > consecutive_degenerate_steps_before_anti_cycle:
                     pivotrule = lambda d, eps: bland(d, eps)
                 break
         else:
-            degenerate_counter = 0
+            consecutive_degenerate_steps = 0
         entering, leaving = pivotrule(d, eps)
-
     if entering is not None and leaving is None:
         return LPResult.UNBOUNDED, None
     return LPResult.OPTIMAL, d
-
-
-# 1) Check if we can go directly to the simplex method (all constraint constants are greater than 0)
-#       True: Construct dictionary
-#             return simplex(...)
-# 2) Set the OF to minus the auxiliary variable
-# 3) Set the entering variable to be the auxiliary variable
-# 4) Find the leaving variable, where the constraint have the numerically greatest negative constant
-# 5) pivot(auxiliary variable, leaving identified above)
-# 6) Use the simplex method in the dictionary
-# 7) Check if simplex method is unbounded
-#       True: return INFEASIBLE, None TODO: Check if the original problem can be unbounded if the auxiliary problem is.
-# 8) Check if the auxiliary variable is in the basis
-#       True: pivot the auxiliary variable out of the basis.
-# 9) Identify location of auxiliary variable in the non-basis
-# 10) Delete the column with the auxiliary variable, and
-#    delete the element of N holding the auxiliary variable
-# 11) Correct the OF
-# 12) return simplex(...)
-def lp_solve_two_phase(c, a, b, dtype=Fraction, eps=0, pivotrule=lambda d, eps: bland(d, eps), verbose=False):
-    # 1) Check if we can go directly to the simplex method (all constraint constants are non-negative)
-    if (b >= 0).all():
-        # True: Construct dictionary
-        d = dictionary.Dictionary(c, a, b, dtype)
-        #       return simplex(...)
-        return simplex(d, eps, pivotrule)
-    # 2) Construct auxiliary dictionary
-    d_aux = Dictionary(None, a, b, dtype)
-    # 3) Set the entering variable to be the auxiliary variable
-    entering = d_aux.N.shape[0] - 1
-    # 4) Find the leaving variable, where the constraint have the numerically greatest negative constant
-    leaving = lowest_constraint_const(d_aux)
-    # 5) pivot(auxiliary variable, leaving identified above)
-    d_aux.pivot(entering, leaving)
-    # 6) Use the simplex method in the dictionary
-    result_aux, d_aux = simplex(d_aux, eps, pivotrule)
-    # 7) Check if simplex method is unbounded
-    if result_aux != LPResult.OPTIMAL:
-        # True: return INFEASIBLE, None TODO Check if the original problem can be unbounded if the auxiliary problem is.
-        return LPResult.INFEASIBLE, None
-    # 8) Check if the auxiliary variable is in the basis
-    is_auxiliary_variable_in_basis, position_in_basis = position_of_auxiliary_variable_in_basis(d_aux)
-    if is_auxiliary_variable_in_basis:
-        # True: pivot the auxiliary variable out of the basis. The entering variable can be chosen arbitrarily
-        entering = 0
-        d_aux.pivot(entering, position_in_basis)
-    # 9) Identify location of auxiliary variable in the non-basis
-    index_of_auxiliary_variable_in_basis = basis_index_auxiliary_variable(d_aux)
-    # 10) Delete the column with the auxiliary variable and the element of N holding the auxiliary variable
-    d_aux.N = np.delete(d_aux.N, index_of_auxiliary_variable_in_basis, 0)
-    d_aux.C = np.delete(d_aux.C, index_of_auxiliary_variable_in_basis + 1, 1)
-    # 11) Correct the OF
-    d_aux.C[0, 1:] = c
-    aggregate = np.full((len(c) + 1), 0, dtype)
-    for index, b in enumerate(d_aux.B):
-        if b <= len(c):
-            v1 = d_aux.C[index + 1, :]
-            v2 = c[b - 1]
-            v3 = v1 * v2
-            aggregate += v3
-            d_aux.C[0, b] = 0
-    d_aux.C[0, :] += aggregate
-    # 12) return simplex(...)
-    return simplex(d_aux, eps=eps, pivotrule=pivotrule)
 
 
 def position_of_auxiliary_variable_in_basis(d: dictionary.Dictionary):

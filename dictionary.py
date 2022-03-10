@@ -145,91 +145,38 @@ class Dictionary:
         else:
             self.float_fraction_pivot(entering, leaving)
 
-
-    def integer_pivot2(self, k, l):
-        # save previous row and column
-        prev_column = np.array(self.C[:, k + 1])
-        prev_pivot_row = self.C[l + 1]
-
-        n = len(self.C)
-
-        # save previous pivot coefficient
-        a = self.lastpivot
-
-        # save current pivot coefficient
-        cur_coef = -(self.C[l + 1, k + 1])
-
-        for i in range(len(self.C)):
-            if i == l + 1:
-                continue
-            self.C[i] = self.C[i] * cur_coef
-
-        # swap entering and leaving variable
-        B_l = self.B[l]
-        self.B[l] = self.N[k]
-        self.N[k] = B_l
-
-        # Set pivot coefficient to previous last pivot
-        self.C[l + 1, k + 1] = -a
-
-        # Calculating rows - not pivot row
-        for i in range(n):
-            if i == l + 1:
-                continue
-            row_k = self.C[i]
-            row_without_k = np.delete(row_k, k + 1)
-            row_without_k = np.insert(row_without_k, k + 1, 0)
-            self.C[i] = (prev_column[i] * prev_pivot_row + row_without_k) // a
-
-        self.lastpivot = cur_coef
-
-        if self.lastpivot < 0:
-            self.C = -self.C
-            self.lastpivot = -self.lastpivot
-
-        pass
-
-    # TODO: Check that this is correct. Run the examble which field (20 random and the specific one you copied
     # Note that the last pivot coefficient variable is initialized to 1.
-    # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
+    # 0) Shift the names of the variables N[entering] <--> B[leaving]
     # 1) Save pivot coefficient
-    # 3) Multiply all non-pivot rows by the negative pivot coefficient
-    # 4) Set pivot coefficient in d.C to last pivot coefficient? (Negative of last_pivot)
-    # 5) Divide all non-pivot rows by the negative of last pivot coefficient
-    #    (Note that the last-pivot variable already contains the negative of the last pivot coefficient)
-    # 6) Input new expression for the leaving variable into all other rows
-    # 7) Save the NEGATIVE pivot coefficient as last pivot coefficient, preparing for the next pivot.
+    # 2) Move the pivot coefficient value to the rhs
+    # 3) If the pivot coefficient is positive then multiply pivot row by -1 to make the entering variable coefficient
+    #    positive when moved to the lhs when entering the basis
+    # 4) Multiply all non-pivot rows by the absolute value of the pivot coefficient
+    # 5) Input new expression for the leaving variable into all none-pivot rows
+    # 6) Divide all non-pivot rows by the negative absolute value of the last pivot coefficient
+    # 7) Save the absolute value of the pivot coefficient as last pivot coefficient, preparing for the next pivot.
     def integer_pivot(self, entering, leaving):
-        # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
         temp = self.N[entering]
         self.N[entering] = self.B[leaving]
         self.B[leaving] = temp
-        # 1) Save pivot coefficient
         a = self.C[leaving + 1, entering + 1]
-        # 3) Multiply all non-pivot rows by the negative pivot coefficient
+        self.C[leaving + 1, entering + 1] = -self.lastpivot
+        if a > 0:
+            self.C[leaving + 1, :] *= -1
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
-                self.C[row, :] *= -a
-        # 4) Set pivot coefficient in d.C to last pivot coefficient? (Negative of last_pivot)
-        self.C[leaving + 1, entering + 1] = -self.lastpivot
-
-        # 6) Input new expression for the leaving variable into all none-pivot rows
+                self.C[row, :] = self.C[row, :] * abs(a)
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
                 coefficient = self.C[row, entering + 1]
-                pivot_row_multiplier = coefficient // -a
+                pivot_row_multiplier = coefficient // abs(a)
                 self.C[row, entering + 1] = 0
                 self.C[row, :] += pivot_row_multiplier * self.C[leaving + 1, :]
-        # 5) Divide all non-pivot rows by the negative of last pivot coefficient
-        #    (Note that the last-pivot variable already contains the negative of the last pivot coefficient)
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
-                self.C[row, :] //= self.lastpivot
-        # 7) Save the NEGATIVE pivot coefficient as last pivot coefficient, preparing for the next pivot.
-        self.lastpivot = -a # TODO Remove this comment: works like this - not without the minus...
+                self.C[row, :] = self.C[row, :] // self.lastpivot
+        self.lastpivot = abs(a)
 
-    # Pivot entering and leaving
-    #
     # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
     # 1) Save pivot coefficient into a variable
     # 2) Divide pivot row by the negative of the saved pivot coefficient
