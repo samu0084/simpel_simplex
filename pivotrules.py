@@ -30,27 +30,16 @@ import numpy as np
 #    (Use helper function)
 # 5) return entering and leaving
 def bland(d, eps, verbose=False):
-    # 1) Initialize entering and leaving to None
-    entering = leaving = None
-    # 2) Iterate over the objective function variable coefficients
+    entering = None
     for col in range(1, d.C.shape[1]):
-        # a) Check if eps-corrected coefficient is non-positive
         value = eps_correction(d.C[0, col], eps, d.dtype)
         if value <= 0:
-            # True: continue with next iteration
             continue
-        # b) Set entering to the current variable and break out
         entering = col - 1
         break
-    # 3) Check if entering is None
-    # (If so then all variable coefficients in the OF is non-positive, and thus the dictionary is optimal)
     if entering is None:
-        # True: return None, None
         return None, None
-    # 4) Sat leaving variable to the basis variable which limits the growth of the entering variable the most.
-    #    (Use helper function)
     leaving, _ = leaving_variable(d, eps, entering)
-    # 5) return entering and leaving
     return entering, leaving
 
 
@@ -81,26 +70,15 @@ def bland(d, eps, verbose=False):
 #   True: return None, None
 # 4) return entering, leaving variable which limits the growth of the entering variable the most
 def largest_coefficient(d, eps, verbose=False):
-    # 1) Initialize entering and leaving to None and
-    #    largest_until_now to 0
-    entering = leaving = None
+    entering = None
     largest_until_now = 0
-    # 2) For each coefficient in OF
     for col in range(1, d.C.shape[1]):
-        # a) Get coefficient value through eps_correction
         current_value = eps_correction(d.C[0, col], eps, d.dtype)
-        # b) Check if eps-corrected coefficient value is greater than largest_until_now
         if largest_until_now < current_value:
-            # True: Set largest_until_now to coefficient value
-            #       Set entering to variable index in N of the current coefficient
             largest_until_now = current_value
             entering = col - 1
-    # 3) Check if entering is None
-    #    (If so then all variable coefficients in the OF is non-positive, and thus the dictionary is optimal)
     if entering is None:
-        # True: return None, None
         return None, None
-    # 4) return entering, leaving variable which limits the growth of the entering variable the most
     leaving, _ = leaving_variable(d, eps, entering)
     return entering, leaving
 
@@ -124,52 +102,38 @@ def largest_coefficient(d, eps, verbose=False):
 #   a) Check if eps-corrected coefficient value is non-positive
 #       True: continue with next iteration.
 #   b) Get ratio for the current potential entering variable. (Note that ratio equals the increase of the variable)
-#   c) Calculate how much the OF is increased: OF_coefficient * ratio
-#   d) Check if increase is greater than largest_increase_until_now
+#   c) Check if the entering variable is unbounded (If all constraint coefficients a non-basic variable is non-negative
+#      then the dictionary is unbounded, and then the 'leaving_variable()' helper method will return None, math.inf)
+#       True: In case of unbounded we need to return Some, none, and so we set the entering variable to infinity
+#             and the leaving variable to None
+#   d) Calculate how much the OF is increased: OF_coefficient * ratio
+#   e) Check if increase is greater than largest_increase_until_now
 #       True: largest_increase_until_now = increase
 #             entering = current potential entering variable
 #             leaving = potential leaving variable
 # 3) return found results
 def largest_increase(d, eps, verbose=False):
-    # 1) Initialize largest_increase_until_now = 0 and
-    #    entering and leaving to be None
     entering = leaving = None
     largest_increase_until_now = -math.inf
-    # 2) For each variable coefficient in the OF
     for col in range(1, d.C.shape[1]):
-        # a) Check if eps-corrected coefficient value is non-positive
         coefficient = eps_correction(d.C[0, col], eps, d.dtype)
         if coefficient <= 0:
-            # True: continue with next iteration.
             continue
-        # b) Get ratio for the current potential entering variable (Note that ratio equals the increase of the variable)
         leaving_given_col, ratio = leaving_variable(d, eps, col - 1, verbose)
-        # c) Check whether the entering variable is unbounded (If all constraint coefficients
-        # of a non-basic variable is non-negative then the dictionary is unbounded, and then
-        # the 'leaving_variable()' helper method will return None, math.inf)
         if leaving_given_col is None:
-            # True: In case of unbounded we need to return Some, none, and so we set the entering variable to infinity
-            #       and the leaving variable to None
             entering = math.inf
             leaving = None
             break
-        # d) Calculate how much the OF is increased: OF_coefficient * ratio
         increase = d.C[0, col] * ratio
-        # e) Check if increase is greater than largest_increase_until_now
         if largest_increase_until_now < increase:
-            # True: largest_increase_until_now = increase
-            #       entering = current potential entering variable
-            #       leaving = potential leaving variable
             largest_increase_until_now = increase
             entering = col - 1
             leaving = leaving_given_col
-    # 3) return found results
     return entering, leaving
 
 
 # Pick leaving variable which limits the growth of the entering variable the most.
-# 1) Initialize the variable least_until_now to be infinite and
-#    the leaving variable to be None
+# 1) Initialize the variable least_until_now to be infinite and the leaving variable to be None
 # 2) for each constraint:
 #   a) Check if constraint coefficient of entering variable is non-negative
 #      (Note: For a tableau or algebraic notation the coefficient would have to be positive instead)
@@ -179,41 +143,27 @@ def largest_increase(d, eps, verbose=False):
 #       True: set leas_until_now = ratio
 #             Save leaving variable
 # 3) Check if leaving is None (Implies that all constrain coefficients are positive; thus the problem is unbounded)
+#       True: adjust least_until_now to -math.inf to represent unbounded TODO: Should this be math.inf (no negation)
 # 4) return leaving variable, along with least(ratio)-until-now:
 def leaving_variable(d, eps, entering, verbose=False):
-    # 1) Initialize the variable least_until_now to be infinite and
-    #    the leaving variable to be None
     leaving = None
     least_until_now = math.inf
-    # 2) for each constraint:
     for row in range(1, d.C.shape[0]):
-        # a) Check if constraint coefficient of entering variable is non-negative
-        #    (Note: For a tableau or algebraic notation the coefficient would have to be positive instead)
         coefficient = eps_correction(d.C[row, entering + 1], eps, d.dtype)
         if coefficient >= 0:
-            #       go to next iteration
             continue
-        # b) Calculate: ratio = constraint constant / negative constraint coefficient of entering variable
-        constant = eps_correction(d.C[row, 0], eps, d.dtype)  # TODO !!!!!!! Might be a problem with negative b values? Can b values be negative once we reach the simple simplex?
-        new_ratio = constant / -coefficient  # TODO: If constant equals zero, should we continue to the next iteration?
-        # c) Check if ratio is less than least until now
+        constant = eps_correction(d.C[row, 0], eps, d.dtype)
+        new_ratio = constant / -coefficient
         if least_until_now > new_ratio:
-            # True: Set leas_until_now = ratio
-            #       Save leaving variable
             least_until_now = new_ratio
             leaving = row - 1
-    # 3) Check if leaving is None (Implies that all constrain coefficients are positive; thus the problem is unbounded)
     if leaving is None:
-        # True: adjust least_until_now to represent unbounded
         least_until_now = -math.inf
-    # 4) return leaving variable, along with least(ratio)-until-now:
     return leaving, least_until_now
 
 
-# TODO: Check eps_correction and write tests for it
+# eps>=0 is such that float64 numbers in the closed interval [-eps,eps] are to be treated as if they were 0.
 def eps_correction(value, eps, dtype):
-    # eps>=0 is such that numbers in the closed interval [-eps,eps]
-    # are to be treated as if they were 0
     if dtype == np.float64 or eps <= 0:
         return value
     if -eps <= value <= eps:

@@ -137,14 +137,59 @@ class Dictionary:
         else:
             return self.C[0, 0]
 
+    # Pivot Dictionary with N[k] entering and B[l] leaving
+    # Performs integer pivoting if self.dtype==int
     def pivot(self, entering, leaving, verbose=False):
-        # Pivot Dictionary with N[k] entering and B[l] leaving
-        # Performs integer pivoting if self.dtype==int
         if self.dtype == int:
-            self.integer_pivot(entering, leaving, verbose)
+            self.integer_pivot(entering, leaving)
         else:
-            self.float_fraction_pivot(entering, leaving, verbose)
+            self.float_fraction_pivot(entering, leaving)
 
+
+    def integer_pivot2(self, k, l):
+        # save previous row and column
+        prev_column = np.array(self.C[:, k + 1])
+        prev_pivot_row = self.C[l + 1]
+
+        n = len(self.C)
+
+        # save previous pivot coefficient
+        a = self.lastpivot
+
+        # save current pivot coefficient
+        cur_coef = -(self.C[l + 1, k + 1])
+
+        for i in range(len(self.C)):
+            if i == l + 1:
+                continue
+            self.C[i] = self.C[i] * cur_coef
+
+        # swap entering and leaving variable
+        B_l = self.B[l]
+        self.B[l] = self.N[k]
+        self.N[k] = B_l
+
+        # Set pivot coefficient to previous last pivot
+        self.C[l + 1, k + 1] = -a
+
+        # Calculating rows - not pivot row
+        for i in range(n):
+            if i == l + 1:
+                continue
+            row_k = self.C[i]
+            row_without_k = np.delete(row_k, k + 1)
+            row_without_k = np.insert(row_without_k, k + 1, 0)
+            self.C[i] = (prev_column[i] * prev_pivot_row + row_without_k) // a
+
+        self.lastpivot = cur_coef
+
+        if self.lastpivot < 0:
+            self.C = -self.C
+            self.lastpivot = -self.lastpivot
+
+        pass
+
+    # TODO: Check that this is correct. Run the examble which field (20 random and the specific one you copied
     # Note that the last pivot coefficient variable is initialized to 1.
     # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
     # 1) Save pivot coefficient
@@ -154,7 +199,7 @@ class Dictionary:
     #    (Note that the last-pivot variable already contains the negative of the last pivot coefficient)
     # 6) Input new expression for the leaving variable into all other rows
     # 7) Save the NEGATIVE pivot coefficient as last pivot coefficient, preparing for the next pivot.
-    def integer_pivot(self, entering, leaving, verbose=False):
+    def integer_pivot(self, entering, leaving):
         # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
         temp = self.N[entering]
         self.N[entering] = self.B[leaving]
@@ -165,10 +210,10 @@ class Dictionary:
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
                 self.C[row, :] *= -a
-
-        # 4) Set pivot coefficient in d.C to last pivot coefficient (Negative of last_pivot)
+        # 4) Set pivot coefficient in d.C to last pivot coefficient? (Negative of last_pivot)
         self.C[leaving + 1, entering + 1] = -self.lastpivot
-        # 6) Input new expression for the leaving variable into all other rows
+
+        # 6) Input new expression for the leaving variable into all none-pivot rows
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
                 coefficient = self.C[row, entering + 1]
@@ -181,38 +226,29 @@ class Dictionary:
             if row != leaving + 1:
                 self.C[row, :] //= self.lastpivot
         # 7) Save the NEGATIVE pivot coefficient as last pivot coefficient, preparing for the next pivot.
-        self.lastpivot = -a
+        self.lastpivot = -a # TODO Remove this comment: works like this - not without the minus...
 
     # Pivot entering and leaving
     #
     # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
     # 1) Save pivot coefficient into a variable
-    # 2) Set pivot coefficient inside d.C to 1
-    # 3) Divide pivot row by the saved pivot coefficient
+    # 2) Divide pivot row by the negative of the saved pivot coefficient
+    # 3) Set pivot coefficient inside d.C to 1
     # 4) For each non-pivot row
-    #   a) Add the coefficient of the pivot variable in the given row, multiplied by the pivot row, to the given row.
-    def float_fraction_pivot(self, entering, leaving, verbose=False):
-        # 0) Shift the names of the variables in N and B (This can be done at any point doing the algorithm)
-        try:
-            temp = self.N[entering]
-        except:
-            print(entering)
+    #   a) Get the coefficient of the pivot variable in the given row
+    #   b) Add the coefficient multiplied by the pivot row to the given row.
+    #   c) Correct the coefficient of the 'leaving variable' which is now part of the non-basis
+    #      This is necessary as the coefficient would otherwise be:
+    #           coefficient-value of entering variable + coefficient-value of entering variable * pivot row
+    def float_fraction_pivot(self, entering, leaving):
+        temp = self.N[entering]
         self.N[entering] = self.B[leaving]
         self.B[leaving] = temp
-        # 1) Save pivot coefficient into a variable
         a = self.C[leaving + 1, entering + 1]
-        # 3) Divide pivot row by the negative of the saved pivot coefficient
         self.C[leaving + 1, :] /= -a
-        # 2) Set pivot coefficient inside d.C to 1 / pivot coefficient
         self.C[leaving + 1, entering + 1] = 1 / a
-        # 4) For each non-pivot row
         for row in range(self.C.shape[0]):
             if row != leaving + 1:
-                #   a) Get the coefficient of the pivot variable in the given row
                 c = self.C[row, entering + 1]
-                #   b) Add the coefficient multiplied by the pivot row to the given row.
                 self.C[row, :] += c * self.C[leaving + 1, :]
-                #   c) Correct the coefficient of the 'leaving variable' which is now part of the non-basis
-                #      This is necessary as the coefficient would otherwise be:
-                #           coefficient-value of entering variable + coefficient-value of entering variable * pivot row
                 self.C[row, entering + 1] = c * self.C[leaving + 1, entering + 1]

@@ -109,8 +109,10 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
             print(initial_d)
             print("------------------------")
         expected_res = LPResult.OPTIMAL
-        # TODO
-        expected_d = """"""
+        expected_d = """ z = -8/3 -  4/3*x3 -  5/3*x4
+x2 =  1/3 -  1/3*x3 +  1/3*x4
+x1 =  4/3 +  2/3*x3 +  1/3*x4
+x5 =  2/3 +  1/3*x3 -  1/3*x4"""
         res, d = lp_solve(c, a, b, verbose=verbose)
         self.assertEqual(expected_res, res)
         self.assertEqual(expected_d, d.__str__())
@@ -124,13 +126,18 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
             print(initial_d)
             print("------------------------")
         expected_res = LPResult.OPTIMAL
-        # TODO
-        expected_d = """"""
+        expected_d = """13* z = 152 -  21*x3 -   1*x4
+13*x1 =  30 -   5*x3 +   1*x4
+13*x2 =   1 +   2*x3 -   3*x4"""
         res, d = lp_solve(c, a, b, int, verbose=verbose)
         self.assertEqual(expected_res, res)
         self.assertEqual(expected_d, d.__str__())
 
     def test_given_examples_integer_4(self):
+        # TODO - test fails - File "C:\Users\sx5\PycharmProjects\optimization\lpsolve.py", line 204, in lp_solve_two_phase
+        #     aggregate += v3
+        # TODO: solve and compare to linprog solution
+        # numpy.core._exceptions._UFuncOutputCastingError: Cannot cast ufunc 'add' output from dtype('O') to dtype('int32') with casting rule 'same_kind'
         verbose = False
         c, a, b = exercise2_5()
         if verbose:
@@ -138,12 +145,12 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
             print("Initial dictionary:")
             print(initial_d)
             print("------------------------")
+        print(linprog(-c, a, b))
         expected_res = LPResult.OPTIMAL
-        # TODO
-        expected_d = """"""
-        res, d = lp_solve(c, a, b, int, verbose=verbose)
+        res, d = lp_solve(c, a, b, np.float64)
         self.assertEqual(expected_res, res)
-        self.assertEqual(expected_d, d.__str__())
+        res, d = lp_solve(c, a, b, int)
+        self.assertEqual(expected_res, res)
 
     def test_given_examples_integer_5(self):
         verbose = False
@@ -153,14 +160,11 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
             print("Initial dictionary:")
             print(initial_d)
             print("------------------------")
-        expected_res = LPResult.OPTIMAL
-        # TODO
-        expected_d = """"""
+        expected_res = LPResult.INFEASIBLE
         res, d = lp_solve(c, a, b, int, verbose=verbose)
         self.assertEqual(expected_res, res)
-        self.assertEqual(expected_d, d.__str__())
 
-    def test_given_examples_integer_5(self):
+    def test_given_examples_integer_6(self):
         verbose = False
         c, a, b = exercise2_7()
         if verbose:
@@ -169,7 +173,8 @@ x2 =   1/13 +   2/13*x3 -   3/13*x4"""
             print(initial_d)
             print("------------------------")
         expected_res = LPResult.OPTIMAL
-        # TODO
+        print(linprog(-c, a, b))
+        # TODO: The problem is unbounded but we return infeasible
         expected_d = """"""
         res, d = lp_solve(c, a, b, int, verbose=verbose)
         self.assertEqual(expected_res, res)
@@ -217,41 +222,6 @@ x2 = 14/5 -  1/5*x5 +  2/5*x1 +  2/5*x4"""
         res_linprog = lpsolve.linprog(c, a, b, a_eq, b_eq)
         print(res_linprog)
 
-    def test_linprog_vs_ours_on_unbounded(self):
-        random.seed()
-        for i in range(50):
-            n = random.randint(1, 50)
-            m = random.randint(1, 50)
-            c, a, b = random_lp_only_none_negative_b_values(n, m)
-            res_linprog = linprog(-c, a, b, method="simplex")
-            res, d = lpsolve.simple_simplex(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
-            if (res == LPResult.UNBOUNDED) != (
-                    res_linprog.message == "Optimization failed. The problem appears to be unbounded."):
-                print(d)
-                self.assertEqual(res == LPResult.UNBOUNDED,
-                                 res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
-
-    def test_linprog_vs_ours_on_infeasible(self):
-        random.seed()
-        for i in range(50):
-            n = random.randint(1, 50)
-            m = random.randint(1, 50)
-            c, a, b = random_lp_including_negative_b_values(n, m)
-            res_linprog = linprog(-c, a, b, method="simplex")
-            res, d = lpsolve.lp_solve(c, a, b, pivotrule=lambda d, eps: bland(d, eps))
-            if (res == LPResult.INFEASIBLE) != (
-                    res_linprog.message == "Optimization failed. The problem appears to be infeasible."):
-                print(d)
-                self.assertEqual(res == LPResult.UNBOUNDED,
-                                 res_linprog.message == "Optimization failed. The problem appears to be unbounded.")
-
-    def test_infeasibility(self):
-        c = np.array([1, -1, 1])
-        a = np.array([[2, -3, 1], [2, -1, 2], [-1, 1, -2]])
-        b = np.array([-5, 4, -1])
-        d = dictionary.Dictionary(c, a, b)
-        b_retrieved = d.C[1:, 0]
-        print(b_retrieved)
 
 
 """
